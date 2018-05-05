@@ -379,7 +379,7 @@ class Repo {
 			'renderer' => array(
 				'block_separator' => "",
 				'inner_separator' => "",
-				#'line_break' => "</br>\n",
+				'line_break' => "",
 			)
 		);
 		$env = Environment::createCommonMarkEnvironment();
