@@ -1,0 +1,24 @@
+{
+    "name": "dirtsimple/postmark",
+    "description": "Sync WP content from Markdown files",
+    "type": "wp-cli-package",
+    "homepage": "https://github.com/dirtsimple/postmark/",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "PJ Eby",
+            "homepage": "https://github.com/pjeby"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "files": [ "command.php" ],
+        "classmap": ["./postmark.php"]
+    },
+    "require": {
+        "wp-cli/wp-cli": "^1.1.0|dev-master",
+        "rarst/wpdatetime": "^0.3.0",
+        "league/commonmark": "^0.17.5"
+    }
+}
