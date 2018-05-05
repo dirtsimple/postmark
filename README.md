@@ -191,7 +191,7 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 ## Project Status/Roadmap
 
-This project is still in early development: title and excerpt splitting is not actually implemented, tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
+This project is still in early development: excerpt splitting is not actually implemented yet, tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
 * Built-in support for tables and other common markdown extensions
 * A `draft` command to create a new post (there's a non-functional stub implementation right now)

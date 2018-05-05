@@ -204,7 +204,6 @@ class Document extends MarkdownFile {
 	}
 
 	function post_id() { return $this->exists() ? $this->id : $this->sync(); }
-
 	function file_exists() { return file_exists($this->filename); }
 
 	function parent() {
@@ -232,7 +231,11 @@ class Document extends MarkdownFile {
 		return $slug;
 	}
 
-	function splitTitle() {}
+	function splitTitle() {
+		$html = $this->postinfo['post_content'] ?: '';
+		if ( preg_match('/^\s*<h([1-6])>(.*?)</h\1>(.*)/im', $html, $m) ) { $this->postinfo['post_content'] = $m[3]; return $m[2] ?: ''; }
+	}
+
 	function splitExcerpt() {}
 	function author_id() {
 		$email = apply_filters('postmark_author_email', $this->Author, $this);
@@ -243,12 +246,9 @@ class Document extends MarkdownFile {
 
 	function post_date() {     return $this->_parseDate('post_date_gmt',     $this->Date); }
 	function post_modified() { return $this->_parseDate('post_modified_gmt', $this->Updated); }
-
 	protected function _parseDate($gmtField, $date) {
 		$date = new WpDateTime($date, WpDateTimeZone::getWpTimezone());
-		$this->syncField($gmtField,
-			$date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s')
-		);
+		$this->syncField( $gmtField, $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s') );
 		return $date->format('Y-m-d H:i:s');	// localtime version
 	}
 
