@@ -5,9 +5,19 @@ Static site generators let you can use a revision-controlled tree of markdown fi
 
 So why not **combine** the two?
 
-Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (or entire tree of them) and creates or updates posts and pages in Wordpress.  Files are synced using a GUID to identify the post or page, so the same files can be used on multiple wordpress sites (e.g. dev/staging/prod, or common branding pages).  Arbitrary post types are allowed, files can contain YAML front matter to set all standard Wordpress page/post properties, and actions and filters are provided to support syncing of custom fields or other extended metadata.
+Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (or entire tree of them) and creates or updates posts and pages in Wordpress.  Some key features include:
 
-Postmark is somewhat similar to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is one-way from the filesystem to the database, but does not overwrite any database contents that aren't specified in the file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by sync.
+* No webserver configuration changes required: files can be synced from any directory on the server, and don't need to be writable or even readable by the web server.  (They do need to be readable by the user running the wp-cli command, though!)
+* Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
+* Files can contain YAML front matter to set all standard Wordpress page/post properties
+* Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync
+* Markdown is converted using [league/commonmark](league/commonmark), and you can add any compatible extensions using plugin hooks.  Shortcodes can be used, too.  (Though you may need to backslash-escape some opening brackets to keep them from being interpreted as markdown footnote links.)
+* Parent posts or pages are supported (nearest `index.md` above the file becomes its parent)
+* Slugs default to the filename (or directory name for `index.md`), unless otherwise given
+* Post/page titles default to the first line of the markdown body, if it's a heading
+* Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
+
+Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is always one-way (from the filesystem to the database) but does not overwrite any database contents that aren't specified by the input file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by syncing.
 
 ### Contents
 
@@ -46,7 +56,7 @@ The two main commands postmark supplies are:
 * `wp postmark sync <file>... [--force] [--porcelain]`
 * `wp postmark tree <dir>...  [--force] [--porcelain]`
 
-The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page IDs of the synced files.  (Which means you can get a file's Worpdress ID by passing its filename to `wp postmark sync --porcelain`.)
+The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page IDs of the synced files.  (Which means you can get a file's Wordpress ID by passing its filename to `wp postmark sync --porcelain`.)
 
 By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect the sync process or format.)
 
@@ -183,6 +193,8 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: title and excerpt splitting is not actually implemented, tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
+* Built-in support for tables and other common markdown extensions
 * A `draft` command to create a new post (there's a non-functional stub implementation right now)
 * Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
+* Exporting existing posts or pages
