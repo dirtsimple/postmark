@@ -10,6 +10,18 @@
             "homepage": "https://github.com/pjeby"
         }
     ],
+    "keywords": [
+        "markdown",
+        "wordpress",
+        "wp",
+        "wp-cli",
+        "yaml",
+        "front-matter",
+        "content-management",
+        "configuration-management",
+        "static-site-generator",
+        "yaml front matter"
+    ],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "autoload": {
