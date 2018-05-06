@@ -98,7 +98,7 @@ class PostmarkCommand extends \WP_CLI_Command {
 	protected function sync_docs($docs, $flags, $dir=null) {
 		if ( empty($docs) && isset($dir) ) {
 			$dir = realpath($dir);
-			WP_CLI::error("no .md files found in $dir");
+			WP_CLI::warning("no .md files found in $dir");
 		}
 		$porcelain = WP_CLI\Utils\get_flag_value($flags, 'porcelain', false);
 		foreach ($docs as $doc) {
