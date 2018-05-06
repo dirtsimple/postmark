@@ -12,12 +12,14 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
 * Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync
 * Markdown is converted using [league/commonmark](league/commonmark), and you can add any compatible extensions using plugin hooks.  Shortcodes can be used, too.  (Though you may need to backslash-escape some opening brackets to keep them from being interpreted as markdown footnote links.)
-* Parent posts or pages are supported (nearest `index.md` above the file becomes its parent)
+* Parent posts or pages are supported (nearest `index.md` above the file becomes its parent, recursively)
 * Slugs default to the filename (or directory name for `index.md`), unless otherwise given
 * Post/page titles default to the first line of the markdown body, if it's a heading
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 
 Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is always one-way (from the filesystem to the database) but does not overwrite any database contents that aren't specified by the input file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by syncing.
+
+Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimple/mantle), and when you run mantle's `script/watch` command, posts are automatically synced to your development DB whenever you save their `.md` files.
 
 ### Contents
 
