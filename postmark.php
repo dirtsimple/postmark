@@ -203,8 +203,13 @@ class Document extends MarkdownFile {
 		);
 	}
 
-	function post_id() { return $this->exists() ? $this->id : $this->sync(); }
-	function file_exists() { return file_exists($this->filename); }
+	function post_id() {
+		return $this->exists() ? $this->id : $this->sync();
+	}
+
+	function file_exists() {
+		return file_exists($this->filename);
+	}
 
 	function parent() {
 		$dir = dirname($file = $this->filename);
@@ -233,24 +238,52 @@ class Document extends MarkdownFile {
 
 	function splitTitle() {
 		$html = $this->postinfo['post_content'] ?: '';
-		if ( preg_match('/^\s*<h([1-6])>(.*?)</h\1>(.*)/im', $html, $m) ) { $this->postinfo['post_content'] = $m[3]; return $m[2] ?: ''; }
+		if ( preg_match('/^\s*<h([1-6])>(.*?)</h\1>(.*)/im', $html, $m) ) {
+			$this->postinfo['post_content'] = $m[3]; return $m[2] ?: '';
+		}
 	}
 
-	function splitExcerpt() {}
+
+	function html($propName='body') {
+		return $this->repo->format($this, $propName, $this->{$propName});
+	}
+
+	function formatExcerpt() {
+		return $this->html('Excerpt');
+	}
+
+	function splitExcerpt() {
+		# XXX split on a <!--more-->?  <hr/>?
+	}
+
 	function author_id() {
 		$email = apply_filters('postmark_author_email', $this->Author, $this);
 		if ( is_wp_error($email) ) return $email;
 		if ( $user = get_user_by('email', $email) ) return $user->ID;
-		return new WP_Error('bad_author', sprintf(__('Could not find user with email: %s (Author: %s)'), $email, $this->Author));
+		return new WP_Error(
+			'bad_author',
+			sprintf(
+				__('Could not find user with email: %s (Author: %s)'),
+				$email, $this->Author
+			)
+		);
 	}
 
-	function post_date() {     return $this->_parseDate('post_date_gmt',     $this->Date); }
-	function post_modified() { return $this->_parseDate('post_modified_gmt', $this->Updated); }
+
+	function post_date() {
+		return $this->_parseDate('post_date_gmt',     $this->Date);
+	}
+
+	function post_modified() {
+		return $this->_parseDate('post_modified_gmt', $this->Updated);
+	}
+
 	protected function _parseDate($gmtField, $date) {
 		$date = new WpDateTime($date, WpDateTimeZone::getWpTimezone());
 		$this->syncField( $gmtField, $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s') );
 		return $date->format('Y-m-d H:i:s');	// localtime version
 	}
+
 
 	function syncField($field, $value, $cb=null) {
 		$postinfo = & $this->postinfo;
@@ -269,7 +302,10 @@ class Document extends MarkdownFile {
 	function sync() {
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $res = $this->parent_id() ) ) return $res;
-		$this->postinfo = array( 'post_parent' => $res, 'meta_input' => array('postmark_cache' => $this->key()) );
+		$this->postinfo = array(
+			'post_parent' => $res,
+			'meta_input' => array('postmark_cache' => $this->key()),
+		);
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
 			$args = wp_slash( $this->postinfo );
@@ -288,6 +324,7 @@ class Document extends MarkdownFile {
 	function _revkeep($num, $post) {
 		return ( $num && $post->guid == $this->ID ) ? 0 : $num;
 	}
+
 
 	protected function _syncinfo_meta() { return (
 		$this->syncField( 'guid',            $this->ID       ) &&
@@ -316,13 +353,17 @@ class Document extends MarkdownFile {
 
 	protected function _syncinfo_content() { return (
 		$this->syncField( 'post_status',  empty($this->postinfo['ID']) ? 'active' : null ) &&
-		$this->syncField( 'post_content', $this->repo->format($this) ) &&
-		$this->syncField( 'post_title',   array($this, 'splitTitle'),   true ) &&
-		$this->syncField( 'post_excerpt', array($this, 'splitExcerpt'), true ) &&
+		$this->syncField( 'post_content', array($this, 'html'),          true ) &&
+		$this->syncField( 'post_title',   array($this, 'splitTitle'),    true ) &&
+		$this->syncField( 'post_excerpt', array($this, 'formatExcerpt'), $this->Excerpt ) &&
+		$this->syncField( 'post_excerpt', array($this, 'splitExcerpt'),  true ) &&
 		$this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) );
 	}
 
 }
+
+
+
 
 
 
@@ -367,10 +408,10 @@ class Repo {
 
 
 
-	function format($doc) {
-		$markdown = apply_filters('postmark_markdown', $doc->body, $doc);
+	function format($doc, $field, $value) {
+		$markdown = apply_filters('postmark_markdown', $value, $doc, $field);
 		$html = $this->formatter()->convertToHtml($markdown);
-		return apply_filters('postmark_html', $html, $doc);
+		return apply_filters('postmark_html', $html, $doc, $field);
 	}
 
 	function formatter() {

@@ -108,6 +108,9 @@ Category: something          # this can be a comma-delimited string, or a YAML l
 Tags:     bar, baz           # this can be a comma-delimited string, or a YAML list
 Author:   foo@example.com    # user id is looked up by email address
 
+Excerpt: |  # You can set a custom excerpt, which can contain markdown
+  Some *amazing* blurb that makes you want to read this post!
+
 Date: 2017-12-11 13:41 PST        # Dates can be anything recognized by PHP, and
 Updated: April 30, 2018 3:46pm    # use Wordpress's timezone if no zone is given
 
@@ -140,10 +143,10 @@ Wordpress plugins or wp-cli packages can add extra fields (or change the handlin
 Markdown formatting is controlled by the following filters:
 
 * `apply_filters('postmark_formatter_config', array $cfg, Environment $env)` -- this filter is invoked once per command, to initialize the League/Commonmark [Environment](https://commonmark.thephpleague.com/customization/environment/) and [configuration](https://commonmark.thephpleague.com/configuration/).  Filters can add markdown extensions, parsers, or formatters to the `Environment` object, or return an altered `$cfg` array.
-* `apply_filters('postmark_markdown', string $markdown, Document $doc)` -- this filter can alter the markdown content of a document before it's converted into HTML.
-* `apply_filters('postmark_html', string $html, Document $doc)` -- this filter can alter the HTML content of a document immediately after it's converted.
+* `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)
+* `apply_filters('postmark_html', string $html, Document $doc, $fieldName)` -- this filter can alter the HTML content of a document (or any of its front-matter fields) immediately after it's converted.  As with the `postmark_markdown` filter, `$fieldName` is either `"body"` or a front-matter field name.
 
-Note that `postmark_markdown` and `postmark_html` are only invoked if Postmark does the Markdown conversion itself; if a sync filter or action set `post_content` first, Postmark will not convert the document body and so will not call the markdown or HTML filters.
+Note that `postmark_markdown` and `postmark_html` may be invoked several times or not at all, as they are run whenever `$doc->html(...)` is called.  If a sync filter or action set `post_content` or `post_excerpt` before Postmark has a chance to, these filters won't be invoked unless the filter or action uses `$doc->html(...)` to do the conversion.
 
 ### Document Objects and Sync
 
@@ -152,6 +155,7 @@ Many filters and actions receive `dsi\Postmark\Document` objects as a parameter.
 * Front-matter fields are accessible as public, writable object properties.  (e.g. `$doc->Foo` returns front-matter field `Foo`) .  Fields that aren't valid PHP property names can be accessed using e.g. `$doc->{'Some-Field'}`.  Missing or empty fields return null; if you want a different default when the field is missing, you can use `$doc->meta('Somename', 'default-value')`.
 * `$doc->exists()` returns truth if the document currently exists in Wordpress (as determined by looking up its `ID` as a Wordpress GUID)
 * `$doc->body` is the markdown text of the document, and is a writable property.
+* `$doc->html($propName='body')` converts the named property from Markdown to HTML (triggering the `postmark_markdown` and `postmark_html` filters).
 
 During the sync process, a document builds up a `$postarr` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$postarr` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
 
@@ -193,10 +197,11 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 ## Project Status/Roadmap
 
-This project is still in early development: excerpt splitting is not actually implemented yet, tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
+This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
 * Built-in support for tables and other common markdown extensions
 * A `draft` command to create a new post (there's a non-functional stub implementation right now)
 * Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages
+* Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)
