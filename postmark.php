@@ -27,6 +27,9 @@ class PostmarkCommand extends \WP_CLI_Command {
 	 * [--force]
 	 * : Update the post(s) in the DB even if the file(s) are unchanged
 	 *
+	 * [--skip-create]
+	 * : Don't add GUIDs to post files that lack them; exit with an error instead.
+	 *
 	 * [--porcelain]
 	 * : Output just the ID of the created or updated post
 	 */
@@ -34,9 +37,6 @@ class PostmarkCommand extends \WP_CLI_Command {
 		$repo = $this->repo($flags);
 		$this->sync_docs( array_map( array($repo, 'doc'), $args ), $flags );
 	}
-
-
-
 
 
 	/**
@@ -50,6 +50,9 @@ class PostmarkCommand extends \WP_CLI_Command {
 	 * [--force]
 	 * : Update the post(s) in the DB even if the file(s) are unchanged
 	 *
+	 * [--skip-create]
+	 * : Don't add GUIDs to post files that lack them; exit with an error instead.
+	 *
 	 * [--porcelain]
 	 * : Output just the IDs of the created or updated posts
 	 */
@@ -62,27 +65,20 @@ class PostmarkCommand extends \WP_CLI_Command {
 	/**
 	 * Generate a unique ID for use in a markdown file
 	 */
-	 function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
+	function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
 
-	/**
-	 * Generate a draft .md file for a new post
-	 *
-	 * <file>...
-	 * : One or more paths to files to be created with a unique ID
-	 *
-	 * ## OPTIONS
-	 *
-	 * [--force]
-	 * : Overwrite the file(s) if they exist
-	 *
-	 */
-	function draft( $args, $flags ) {
-	}
 
+	// -- non-command utility methods --
 
 	protected function repo($flags) {
-		return new Repo( ! WP_CLI\Utils\get_flag_value($flags, 'force', false) );
+		return new Repo(
+			! WP_CLI\Utils\get_flag_value($flags, 'force', false),
+			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
+		);
 	}
+
+
+
 
 	protected function result($doc, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
@@ -121,6 +117,10 @@ class PostmarkCommand extends \WP_CLI_Command {
 
 
 
+
+
+
+
 class MarkdownFile {
 	/* A MarkdownFile is a combination of front matter and body */
 
@@ -139,8 +139,16 @@ class MarkdownFile {
 
 	function loadFile($file) { return $this->parse(file_get_contents($file)); }
 
-	function dump() {
-		return sprintf("%s---\n%s", Spyc::YAMLDump( $this->meta, 2, 0 ), $this->body);
+	function dump($filename=null) {
+		$data = sprintf("%s---\n%s", Spyc::YAMLDump( $this->meta, 2, 0 ), $this->body);
+		return isset($filename) ? file_put_contents($filename, $data, LOCK_EX) : $data;
+	}
+
+	function saveAs($filename) {
+		if ( copy($filename, "$filename.bak") ) {
+			$r1 = $this->dump($filename); $r2 = unlink("$filename.bak");
+			return $r1 && $r2;
+		}
 	}
 
 	function meta($key=null, $default=null) {
@@ -153,14 +161,6 @@ class MarkdownFile {
 	function __get($key) { return $this->meta($key); }
 	function __set($key, $val) { $this->meta[$key]=$val; }
 }
-
-
-
-
-
-
-
-
 
 class Document extends MarkdownFile {
 
@@ -195,13 +195,13 @@ class Document extends MarkdownFile {
 	function synced() { return $this->repo->postForKey($this->key()); }
 	function exists() { return $id = $this->current_id() && ! is_wp_error($id); }
 
-	function current_id() { return (
-			$this->id             ? $this->id :
-			$id = $this->synced() ? $this->id = $id :
-			( $guid = $this->ID ) ? $this->id = $this->repo->postForGUID($guid) :
-			new WP_Error( 'missing_guid', sprintf( __( '%s: Missing or Empty `ID:` Field (%s).', 'postmark'), $this->filename, $this->meta['ID']) )
-		);
+	function current_id() {
+		$id = $this->id ?: $this->synced() ?: $this->repo->postForDoc($this);
+		return is_wp_error($id) ? $id : $this->id = $id;
 	}
+
+	function save() { $this->key=null; return $this->saveAs($this->filename); }
+
 
 	function post_id() {
 		return $this->exists() ? $this->id : $this->sync();
@@ -238,7 +238,7 @@ class Document extends MarkdownFile {
 
 	function splitTitle() {
 		$html = $this->postinfo['post_content'] ?: '';
-		if ( preg_match('/^\s*<h([1-6])>(.*?)</h\1>(.*)/im', $html, $m) ) {
+		if ( preg_match('"^\s*<h([1-6])>(.*?)</h\1>(.*)"im', $html, $m) ) {
 			$this->postinfo['post_content'] = $m[3]; return $m[2] ?: '';
 		}
 	}
@@ -302,6 +302,7 @@ class Document extends MarkdownFile {
 	function sync() {
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $res = $this->parent_id() ) ) return $res;
+		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
 		$this->postinfo = array(
 			'post_parent' => $res,
 			'meta_input' => array('postmark_cache' => $this->key()),
@@ -313,7 +314,7 @@ class Document extends MarkdownFile {
 			$res = empty($args['ID']) ? wp_insert_post($args, true) : wp_update_post($args, true);
 			remove_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
 			if (!is_wp_error($res)) {
-				$this->repo->save($this, $this->id = $this->postinfo['ID'] = $res);
+				$this->repo->cache($this, $this->id = $this->postinfo['ID'] = $res);
 				do_action('postmark_after_sync', $this, get_post($res));
 			}
 			return $res;
@@ -324,7 +325,6 @@ class Document extends MarkdownFile {
 	function _revkeep($num, $post) {
 		return ( $num && $post->guid == $this->ID ) ? 0 : $num;
 	}
-
 
 	protected function _syncinfo_meta() { return (
 		$this->syncField( 'guid',            $this->ID       ) &&
@@ -360,19 +360,20 @@ class Document extends MarkdownFile {
 		$this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) );
 	}
 
+	function filenameError($code, $message) {
+		return new WP_Error($code, sprintf($message, $this->filename));
+	}
 }
 
 
 
-
-
-
 class Repo {
-	protected $cache, $by_guid, $converter, $roots;
+	protected $cache, $by_guid, $converter, $roots, $allowCreate;
 
-	function __construct($cache=true) {
+	function __construct($cache=true, $allowCreate=true) {
 		$this->reindex($cache);
 		$this->roots = array();
+		$this->allowCreate = $allowCreate;
 	}
 
 	function reindex($cache) {
@@ -397,16 +398,27 @@ class Repo {
 	}
 
 	function postForGUID($guid) {
-		if ( isset($this->by_guid[$guid]) ) return $this->by_guid[$guid];
+		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : false);
 	}
 
-	function save($doc, $res) {
+	function cache($doc, $res) {
 		if ($res) $this->cache[$doc->key()] = $this->by_uuid[$doc->ID] = $res;
 		return $res;
 	}
 
 
 
+	function postForDoc($doc) {
+		return $this->postForGUID(
+			$doc->ID           ? $doc->ID : (
+			$this->allowCreate ? $this->newID($doc) : (
+			$doc->filenameError('missing_guid', __( 'Missing or Empty `ID:` field in %s', 'postmark'))))
+		);
+	}
+	function newID($doc) {
+		$guid = $doc->ID = 'urn:uuid:' . wp_generate_uuid4();
+		return $doc->save() ? $guid : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
+	}
 
 	function format($doc, $field, $value) {
 		$markdown = apply_filters('postmark_markdown', $value, $doc, $field);
@@ -430,10 +442,10 @@ class Repo {
 
 	protected function __root($file) {
 		return $this->roots[$dir = dirname($file)] = (
-			isset($this->roots[$dir])      ? $this->roots[$dir] :
-			( $dir == $file )              ? $dir :
-			is_project($dir)               ? dirname($dir) :
-			$this->__root($dir)
+			isset($this->roots[$dir])      ? $this->roots[$dir] : (
+			( $dir == $file )              ? $dir : (
+			is_project($dir)               ? dirname($dir) : (
+			$this->__root($dir))))
 		);
 	}
 
@@ -443,11 +455,7 @@ class Repo {
 		$path = substr($file, strlen($root)+1);
 		return array($root, $path);
 	}
-
 }
-
-
-
 
 function rglob($pat, $f=0) {
 	$files = glob($pat, $f);
@@ -481,12 +489,4 @@ function is_project($dir) {
 		file_exists("$dir/.svn")
 	);
 }
-
-
-
-
-
-
-
-
 

@@ -1,4 +1,4 @@
-Sync Markdown Files to Posts and Pages w/Postmark
+Sync Markdown Files to WordPress Posts and Pages
 -------------------
 
 Static site generators let you can use a revision-controlled tree of markdown files to make a site, but don't offer a lot of themes or dynamic features.  Wordpress has lots of themes and dynamic features, but locks up your content in HTML embedded in a database, where you can't use your own editor or revision control anything.
@@ -11,11 +11,12 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
 * Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync
+* Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
+* Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
 * Markdown is converted using [league/commonmark](league/commonmark), and you can add any compatible extensions using plugin hooks.  Shortcodes can be used, too.  (Though you may need to backslash-escape some opening brackets to keep them from being interpreted as markdown footnote links.)
 * Parent posts or pages are supported (nearest `index.md` above the file becomes its parent, recursively)
 * Slugs default to the filename (or directory name for `index.md`), unless otherwise given
 * Post/page titles default to the first line of the markdown body, if it's a heading
-* Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 
 Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is always one-way (from the filesystem to the database) but does not overwrite any database contents that aren't specified by the input file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by syncing.
 
@@ -53,16 +54,20 @@ Postmark can be installed via:
 wp package install dirtsimple/postmark
 ```
 
-The two main commands postmark supplies are:
+The two main commands Postmark provides are:
 
-* `wp postmark sync <file>... [--force] [--porcelain]`
-* `wp postmark tree <dir>...  [--force] [--porcelain]`
+* `wp postmark sync <file>... [--force] [--skip-create] [--porcelain]`
+* `wp postmark tree <dir>...  [--force] [--skip-create] [--porcelain]`
 
 The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page IDs of the synced files.  (Which means you can get a file's Wordpress ID by passing its filename to `wp postmark sync --porcelain`.)
 
-By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect the sync process or format.)
+By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect how posts are converted or formatted.)
 
-The other command available is:
+To sync a markdown file with Wordpress, the file's front matter must include a globally unique identifier in the `ID` field.  If this value is missing, Postmark will add it automatically, unless you use the `--skip-create` option (in which case you'll get an error message instead).
+
+To add an `ID`, Postmark must be able to write to both the file and the directory in question (to save a backup copy of the file during the change), so you should use `--skip-create` if those permissions are not available to the wp-cli user.
+
+The other command Postmark provides is:
 
 * `wp postmark uuid`
 
@@ -80,7 +85,8 @@ Postmark input files use standard YAML front matter, delineated by `---` before 
 
 ```markdown
 ---
-ID: urn:uuid:1e30ea5f-17fe-422a-9c24-cb591eb2d72d  # required, must be globally unique
+ID: urn:uuid:1e30ea5f-17fe-422a-9c24-cb591eb2d72d
+Draft: yes
 ---
 ## Content Goes Here
 
@@ -92,7 +98,7 @@ Content is converted from Markdown to HTML using league/commonmark, and the form
 
 ### The `ID:` Field
 
-All front matter fields are optional, except for `ID:`, which *must* contain a globally unique identifier, preferably in the form of a [uuid](https://en.wikipedia.org/wiki/Universally_unique_identifier).  (You can generate suitable values using `wp postmark uuid`.)
+All front matter fields are optional, except for `ID:`, which *must* contain a globally unique identifier, preferably in the form of a [uuid](https://en.wikipedia.org/wiki/Universally_unique_identifier).  (You can generate suitable values using `wp postmark uuid`.)  By default, Postmark will automatically add the field to new markdown files, unless you use `--skip-create` or Postmark is unable to write to the file or directory.
 
 The purpose of ths identifier is to allow postmark to match a file with an existing page or post in the Wordpress database, or else know that it needs to create a new one with that identifier.  (Post ID numbers are not sufficient for this purpose, since they can vary across wordpress installations, and Wordpress's internally-generated URL-based "guids" are often changed during migration across installations.)
 
@@ -200,7 +206,6 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
 * Built-in support for tables and other common markdown extensions
-* A `draft` command to create a new post (there's a non-functional stub implementation right now)
 * Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages
