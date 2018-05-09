@@ -14,7 +14,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
 * Markdown is converted using [league/commonmark](league/commonmark), and you can add any compatible extensions using plugin hooks.  Shortcodes can be used, too.  (Though you may need to backslash-escape some opening brackets to keep them from being interpreted as markdown footnote links.)
-* Parent posts or pages are supported (nearest `index.md` above the file becomes its parent, recursively)
+* Parent posts or pages are supported (nearest `index.md` above a file becomes its parent, recursively)
 * Slugs default to the filename (or directory name for `index.md`), unless otherwise given
 * Post/page titles default to the first line of the markdown body, if it's a heading
 
@@ -148,7 +148,7 @@ Wordpress plugins or wp-cli packages can add extra fields (or change the handlin
 
 Markdown formatting is controlled by the following filters:
 
-* `apply_filters('postmark_formatter_config', array $cfg, Environment $env)` -- this filter is invoked once per command, to initialize the League/Commonmark [Environment](https://commonmark.thephpleague.com/customization/environment/) and [configuration](https://commonmark.thephpleague.com/configuration/).  Filters can add markdown extensions, parsers, or formatters to the `Environment` object, or return an altered `$cfg` array.
+* `apply_filters('postmark_formatter_config', array $cfg, Environment $env)` -- this filter is invoked once per command, to initialize the League/Commonmark [Environment](https://commonmark.thephpleague.com/customization/environment/) and [configuration](https://commonmark.thephpleague.com/configuration/).  Filters can add markdown extensions, parsers, or formatters to the `Environment` object, or return an altered `$cfg` array.  In addition to the standard configuration elements, `$cfg` contains an `extensions` array mapping extension class names to argument arrays (or null).  These extension classes are instantiated using the given argument arrays, and added to `$env`.  Currently, the default extensions include only `Webuni\CommonMark\TableExtension\TableExtension`, which provides support for Markdown tables.
 * `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)
 * `apply_filters('postmark_html', string $html, Document $doc, $fieldName)` -- this filter can alter the HTML content of a document (or any of its front-matter fields) immediately after it's converted.  As with the `postmark_markdown` filter, `$fieldName` is either `"body"` or a front-matter field name.
 
@@ -205,7 +205,7 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
-* Built-in support for tables and other common markdown extensions
+* Bundled support for attributes and strikethrough
 * Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages

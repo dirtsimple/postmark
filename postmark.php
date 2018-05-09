@@ -10,7 +10,7 @@ use WP_CLI;
 use WP_Error;
 
 /**
- * Sync posts from static markdown files
+ * Sync posts or pages from static markdown files
  *
  */
 
@@ -20,7 +20,7 @@ class PostmarkCommand extends \WP_CLI_Command {
 	 * Sync one or more post file(s)
 	 *
 	 * <file>...
-	 * : One or more paths to markdown file(s) to sync
+	 * : One or more paths to .md file(s) to sync
 	 *
 	 * ## OPTIONS
 	 *
@@ -40,7 +40,7 @@ class PostmarkCommand extends \WP_CLI_Command {
 
 
 	/**
-	 * Sync every markdown file under one or more directories
+	 * Sync every .md file under one or more directories
 	 *
 	 * <dir>...
 	 * : One or more paths of directories containing markdown file(s) to sync
@@ -415,6 +415,7 @@ class Repo {
 			$doc->filenameError('missing_guid', __( 'Missing or Empty `ID:` field in %s', 'postmark'))))
 		);
 	}
+
 	function newID($doc) {
 		$guid = $doc->ID = 'urn:uuid:' . wp_generate_uuid4();
 		return $doc->save() ? $guid : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
@@ -428,16 +429,45 @@ class Repo {
 
 	function formatter() {
 		if ($this->converter) return $this->converter;
+
 		$cfg = array(
 			'renderer' => array(
 				'block_separator' => "",
 				'inner_separator' => "",
 				'line_break' => "",
-			)
+			),
+			'extensions' => array(
+				'Webuni\CommonMark\TableExtension\TableExtension' => null,
+			),
 		);
+
 		$env = Environment::createCommonMarkEnvironment();
 		$cfg = apply_filters('postmark_formatter_config', $cfg, $env);
+
+		$this->addExtensions($env, $cfg['extensions']);
+		unset( $cfg['extensions'] );
 		return $this->converter = new CommonMarkConverter($cfg, $env);
+	}
+
+	protected function addExtensions($env, $exts) {
+		foreach ($exts as $ext => $args) {
+			if ( false === $args ) continue;
+			$extClass = new \ReflectionClass($ext);
+			$ext = $extClass->newInstanceArgs((array) $args);
+			$this->addExtension($env, $ext);
+		}
+	}
+
+	protected function addExtension($env, $ext) {
+		switch (true) {
+		case $ext instanceof League\CommonMark\ExtensionInterface         : $env->addExtension($ext);         break;
+		case $ext instanceof League\CommonMark\BlockParserInterface       : $env->addBlockParser($ext);       break;
+		case $ext instanceof League\CommonMark\BlockRendererInterface     : $env->addBlockRenderer($ext);     break;
+		case $ext instanceof League\CommonMark\DocumentProcessorInterface : $env->addDocumentProcessor($ext); break;
+		case $ext instanceof League\CommonMark\InlineParserInterface      : $env->addInlineParser($ext);      break;
+		case $ext instanceof League\CommonMark\InlineProcessorInterface   : $env->addInlineProcessor($ext);   break;
+		case $ext instanceof League\CommonMark\InlineRendererInterface    : $env->addInlineRenderer($ext);    break;
+		}
 	}
 
 	protected function __root($file) {
@@ -455,7 +485,10 @@ class Repo {
 		$path = substr($file, strlen($root)+1);
 		return array($root, $path);
 	}
+
 }
+
+
 
 function rglob($pat, $f=0) {
 	$files = glob($pat, $f);
@@ -489,4 +522,12 @@ function is_project($dir) {
 		file_exists("$dir/.svn")
 	);
 }
+
+
+
+
+
+
+
+
 
