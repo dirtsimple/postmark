@@ -26,7 +26,10 @@
     "prefer-stable": true,
     "autoload": {
         "files": [ "command.php" ],
-        "classmap": ["./postmark.php"]
+        "classmap": ["./postmark.php"],
+        "psr-4": {
+            "Webuni\\CommonMark\\AttributesExtension\\": "ext/attrs/"
+        }
     },
     "require": {
         "wp-cli/wp-cli": "^1.1.0|dev-master",

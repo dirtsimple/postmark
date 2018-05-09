@@ -1,9 +1,11 @@
 <?php
 namespace dsi\Postmark;
-
 use Mustangostang\Spyc;
+use League\CommonMark\Block;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Environment;
+use League\CommonMark\Extension;
+use League\CommonMark\Inline;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
 use WP_CLI;
@@ -13,7 +15,6 @@ use WP_Error;
  * Sync posts or pages from static markdown files
  *
  */
-
 class PostmarkCommand extends \WP_CLI_Command {
 
 	/**
@@ -37,7 +38,6 @@ class PostmarkCommand extends \WP_CLI_Command {
 		$repo = $this->repo($flags);
 		$this->sync_docs( array_map( array($repo, 'doc'), $args ), $flags );
 	}
-
 
 	/**
 	 * Sync every .md file under one or more directories
@@ -438,9 +438,9 @@ class Repo {
 			),
 			'extensions' => array(
 				'Webuni\CommonMark\TableExtension\TableExtension' => null,
+				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
 			),
 		);
-
 		$env = Environment::createCommonMarkEnvironment();
 		$cfg = apply_filters('postmark_formatter_config', $cfg, $env);
 
@@ -453,20 +453,18 @@ class Repo {
 		foreach ($exts as $ext => $args) {
 			if ( false === $args ) continue;
 			$extClass = new \ReflectionClass($ext);
-			$ext = $extClass->newInstanceArgs((array) $args);
-			$this->addExtension($env, $ext);
+			$this->addExtension($env, $ext, $extClass->newInstanceArgs((array) $args));
 		}
 	}
 
-	protected function addExtension($env, $ext) {
+	protected function addExtension($env, $name, $ext) {
 		switch (true) {
-		case $ext instanceof League\CommonMark\ExtensionInterface         : $env->addExtension($ext);         break;
-		case $ext instanceof League\CommonMark\BlockParserInterface       : $env->addBlockParser($ext);       break;
-		case $ext instanceof League\CommonMark\BlockRendererInterface     : $env->addBlockRenderer($ext);     break;
+		case $ext instanceof Extension\ExtensionInterface                 : $env->addExtension($ext);         break;
+		case $ext instanceof Block\Parser\BlockParserInterface            : $env->addBlockParser($ext);       break;
 		case $ext instanceof League\CommonMark\DocumentProcessorInterface : $env->addDocumentProcessor($ext); break;
-		case $ext instanceof League\CommonMark\InlineParserInterface      : $env->addInlineParser($ext);      break;
-		case $ext instanceof League\CommonMark\InlineProcessorInterface   : $env->addInlineProcessor($ext);   break;
-		case $ext instanceof League\CommonMark\InlineRendererInterface    : $env->addInlineRenderer($ext);    break;
+		case $ext instanceof Inline\Parser\InlineParserInterface          : $env->addInlineParser($ext);      break;
+		case $ext instanceof Inline\Processor\InlineProcessorInterface    : $env->addInlineProcessor($ext);   break;
+		default: WP_CLI::error("Unrecognized extension type: $name");
 		}
 	}
 
@@ -487,6 +485,8 @@ class Repo {
 	}
 
 }
+
+
 
 
 
