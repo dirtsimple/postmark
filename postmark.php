@@ -15,7 +15,7 @@ use WP_Error;
  * Sync posts or pages from static markdown files
  *
  */
-class PostmarkCommand extends \WP_CLI_Command {
+class PostmarkCommand {
 
 	/**
 	 * Sync one or more post file(s)
@@ -429,7 +429,6 @@ class Repo {
 
 	function formatter() {
 		if ($this->converter) return $this->converter;
-
 		$cfg = array(
 			'renderer' => array(
 				'block_separator' => "",
@@ -439,6 +438,7 @@ class Repo {
 			'extensions' => array(
 				'Webuni\CommonMark\TableExtension\TableExtension' => null,
 				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
+				'OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension' => null,
 			),
 		);
 		$env = Environment::createCommonMarkEnvironment();

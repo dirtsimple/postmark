@@ -152,8 +152,9 @@ Markdown formatting is controlled by the following filters:
 
   The current default extensions are:
 
-  * [`Webuni\CommonMark\TableExtension\TableExtension`](https://github.com/webuni/commonmark-table-extension#syntax), which implements Markdown tables, and
-  * [`Webuni\CommonMark\AttributesExtension\AttributesExtension`](https://github.com/webuni/commonmark-attributes-extension#syntax), which allows adding Kramdown-style HTML attributes to blocks and spans.
+  * [`Webuni\CommonMark\TableExtension\TableExtension`](https://github.com/webuni/commonmark-table-extension#syntax), which implements Markdown tables,
+  * [`Webuni\CommonMark\AttributesExtension\AttributesExtension`](https://github.com/webuni/commonmark-attributes-extension#syntax), which allows adding Kramdown-style HTML attributes to blocks and spans, and
+  * [`OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension`](https://github.com/omt/commonmark-strikethrough-extension/), which turns `~~`-wrapped text into `<del>` elements for strikethrough.
 
 * `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)
 
@@ -212,7 +213,6 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
-* Bundled support for strikethrough (`~~`)
 * Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages
