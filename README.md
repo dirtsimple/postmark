@@ -209,6 +209,10 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 
 This filter is only invoked if there is an `Author:` field in the front matter and `postmark_before_sync` didn't already set a `post_author`.
 
+#### postmark_excluded_types
+
+`apply_filters('postmark_excluded_types', array $post_types)` filters an array of post types that will *not* be importable by postmark.  By default, the array contains `['revision', 'edd_payment', 'shop_order', 'shop_subscription']`, to exclude revisions and EDD/WooCommerce orders.  If you are using any plugins with custom post types that can grow to thousands of posts, but do not need to be imported, adding the post types to this list will help keep postmark's startup fast, by reducing the number of GUIDs that need to be loaded from the database.
+
 ## Project Status/Roadmap
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:

@@ -263,27 +263,27 @@ class Document extends MarkdownFile {
 		return new WP_Error(
 			'bad_author',
 			sprintf(
-				__('Could not find user with email: %s (Author: %s)'),
+				__('Could not find user with email: %s (Author: %s)', 'postmark'),
 				$email, $this->Author
 			)
 		);
 	}
 
-
-	function post_date() {
-		return $this->_parseDate('post_date_gmt',     $this->Date);
+	function checkPostType($pi) {
+		return (
+			!isset($pi['post_type']) || $this->repo->postTypeOk($pi['post_type']) ||
+			$this->syncField( 'wp_error', new WP_Error('excluded_type', sprintf(__("Excluded post_type '%s' in %s",'postmark'), $pi['post_type'], $this->filename)))
+		);
 	}
 
-	function post_modified() {
-		return $this->_parseDate('post_modified_gmt', $this->Updated);
-	}
+	function post_date() {     return $this->_parseDate('post_date_gmt',     $this->Date); }
+	function post_modified() { return $this->_parseDate('post_modified_gmt', $this->Updated); }
 
 	protected function _parseDate($gmtField, $date) {
 		$date = new WpDateTime($date, WpDateTimeZone::getWpTimezone());
 		$this->syncField( $gmtField, $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s') );
 		return $date->format('Y-m-d H:i:s');	// localtime version
 	}
-
 
 	function syncField($field, $value, $cb=null) {
 		$postinfo = & $this->postinfo;
@@ -357,7 +357,8 @@ class Document extends MarkdownFile {
 		$this->syncField( 'post_title',   array($this, 'splitTitle'),    true ) &&
 		$this->syncField( 'post_excerpt', array($this, 'formatExcerpt'), $this->Excerpt ) &&
 		$this->syncField( 'post_excerpt', array($this, 'splitExcerpt'),  true ) &&
-		$this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) );
+		$this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) ) &&
+		$this->checkPostType($this->postinfo);
 	}
 
 	function filenameError($code, $message) {
@@ -366,9 +367,8 @@ class Document extends MarkdownFile {
 }
 
 
-
 class Repo {
-	protected $cache, $by_guid, $converter, $roots, $allowCreate;
+	protected $cache, $by_guid, $converter, $roots, $allowCreate, $exclude_types;
 
 	function __construct($cache=true, $allowCreate=true) {
 		$this->reindex($cache);
@@ -378,7 +378,10 @@ class Repo {
 
 	function reindex($cache) {
 		global $wpdb;
-		$filter = "post_status <> 'trash' AND post_type <> 'revision'";
+		$excludes = apply_filters('postmark_excluded_types', array('revision','edd_payment','shop_order','shop_subscription'));
+		$excludes = array_fill_keys($excludes, 1); ksort($excludes); $this->exclude_types = $excludes;
+		$filter = 'post_type NOT IN (' . implode(', ', array_fill(0, count($excludes), '%s')) . ')';
+		$filter = $wpdb->prepare($filter, array_keys($excludes));
 		$this->by_guid = $this->_index("SELECT ID, guid FROM $wpdb->posts WHERE $filter");
 		if ( $cache ) $this->cache = $this->_index(
 			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
@@ -396,7 +399,6 @@ class Repo {
 	function postForKey($key) {
 		if ( isset($this->cache[$key]) ) return $this->cache[$key];
 	}
-
 	function postForGUID($guid) {
 		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : false);
 	}
@@ -405,8 +407,6 @@ class Repo {
 		if ($res) $this->cache[$doc->key()] = $this->by_uuid[$doc->ID] = $res;
 		return $res;
 	}
-
-
 
 	function postForDoc($doc) {
 		return $this->postForGUID(
@@ -484,9 +484,9 @@ class Repo {
 		return array($root, $path);
 	}
 
+	function postTypeOk($post_type) { return !isset($this->exclude_types[$post_type]); }
+
 }
-
-
 
 
 
