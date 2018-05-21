@@ -7,8 +7,6 @@ use League\CommonMark\Environment;
 use League\CommonMark\Extension;
 use League\CommonMark\Inline;
 
-use WP_CLI;	# XXX shouldn't rely on this
-
 class Formatter {
 
 	protected static $converter;
@@ -57,7 +55,7 @@ class Formatter {
 		case $ext instanceof League\CommonMark\DocumentProcessorInterface : $env->addDocumentProcessor($ext); break;
 		case $ext instanceof Inline\Parser\InlineParserInterface          : $env->addInlineParser($ext);      break;
 		case $ext instanceof Inline\Processor\InlineProcessorInterface    : $env->addInlineProcessor($ext);   break;
-		default: WP_CLI::error("Unrecognized extension type: $name");
+		default: throw new Error(__('Unrecognized extension type: %s', 'postmark'), $name);
 		}
 	}
 

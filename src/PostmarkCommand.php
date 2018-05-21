@@ -26,8 +26,12 @@ class PostmarkCommand {
 	 * : Output just the ID of the created or updated post
 	 */
 	function sync( $args, $flags ) {
-		$db = $this->db($flags);
-		$this->sync_docs( array_map( array($db, 'doc'), $args ), $flags );
+		try {
+			$db = $this->db($flags);
+			$this->sync_docs( array_map( array($db, 'doc'), $args ), $flags );
+		} catch (Error $e) {
+			WP_CLI::error($e->getMessage());
+		}
 	}
 
 	/**
@@ -48,9 +52,13 @@ class PostmarkCommand {
 	 * : Output just the IDs of the created or updated posts
 	 */
 	function tree( $args, $flags ) {
-		$db = $this->db($flags);
-		foreach ( $args as $arg )
-			$this->sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
+		try {
+			$db = $this->db($flags);
+			foreach ( $args as $arg )
+				$this->sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
+		} catch (Error $e) {
+			WP_CLI::error($e->getMessage());
+		}
 	}
 
 	/**
