@@ -98,7 +98,7 @@ class Document extends MarkdownFile {
 	function checkPostType($pi) {
 		return (
 			!isset($pi['post_type']) || $this->db->postTypeOk($pi['post_type']) ||
-			$this->syncField( 'wp_error', new WP_Error('excluded_type', sprintf(__("Excluded post_type '%s' in %s",'postmark'), $pi['post_type'], $this->filename)))
+			$this->syncField( 'wp_error', new WP_Error('excluded_type', sprintf(__("Excluded or unregistered post_type '%s' in %s",'postmark'), $pi['post_type'], $this->filename)))
 		);
 	}
 

@@ -3,11 +3,12 @@ namespace dsi\Postmark;
 
 class Database {
 
-	protected $cache, $by_guid, $docs=array(), $allowCreate, $exclude_types;
+	protected $cache, $by_guid, $docs=array(), $allowCreate, $exclude_types, $post_types;
 
 	function __construct($cache=true, $allowCreate=true) {
 		$this->reindex($cache);
 		$this->allowCreate = $allowCreate;
+		$this->post_types = array_fill_keys(get_post_types(), 1);
 	}
 
 	function reindex($cache) {
@@ -60,9 +61,8 @@ class Database {
 		return $doc->save() ? $guid : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
-	function postTypeOk($post_type) { return !isset($this->exclude_types[$post_type]); }
+	function postTypeOk($post_type) {
+		return isset($this->post_types[$post_type]) && !isset($this->exclude_types[$post_type]);
+	}
 
 }
-
-
-
