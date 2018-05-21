@@ -26,8 +26,8 @@
     "prefer-stable": true,
     "autoload": {
         "files": [ "command.php" ],
-        "classmap": ["./postmark.php"],
         "psr-4": {
+            "dsi\\Postmark\\": "src/",
             "Webuni\\CommonMark\\AttributesExtension\\": "ext/attrs/"
         }
     },
