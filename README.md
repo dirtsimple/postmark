@@ -11,6 +11,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
 * Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync
+* In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
 * Markdown is converted using [league/commonmark](league/commonmark) with the [table](https://github.com/webuni/commonmark-table-extension#syntax) and [attribute](https://github.com/webuni/commonmark-attributes-extension#syntax) extensions, and you can add other extensions via filter.  Markdown content can include shortcodes, too.  (Though you may need to backslash-escape adjacent opening brackets to keep them from being treated as markdown footnote links.)
@@ -31,6 +32,10 @@ Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimp
   * [File Format and Directory Layout](#file-format-and-directory-layout)
   * [The `ID:` Field](#the-id-field)
   * [Front Matter Fields](#front-matter-fields)
+  * [Prototypes and Templating](#prototypes-and-templating)
+    + [Template Processing](#template-processing)
+    + [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
+    + [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects and Sync](#document-objects-and-sync)
@@ -40,6 +45,7 @@ Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimp
     + [postmark_after_sync](#postmark_after_sync)
   * [Other Filters](#other-filters)
     + [postmark_author_email](#postmark_author_email)
+    + [postmark_excluded_types](#postmark_excluded_types)
 - [Project Status/Roadmap](#project-statusroadmap)
 
 <!-- tocstop -->
@@ -142,6 +148,93 @@ Please note that Postmark only validates or converts a few of these fields.  Mos
 
 Wordpress plugins or wp-cli packages can add extra fields (or change the handling of existing fields) by registering actions and filters.
 
+### Prototypes and Templating
+
+In some cases, you may have a lot of documents with common field values or structure.  You can keep your  project DRY (i.e., Don't Repeat Yourself) by creating *prototypes*.  For example, if you have a lot of "video" pages that contain one or more videos with some introductory text, you could make file(s) like this:
+
+```markdown
+---
+Prototype: video
+Videos:
+ - title: First Video
+   url: https://youtube.com?view=example
+ - title: Second Video
+   url: https://vimeo.com/something
+---
+# Example Videos
+
+Dude, check these out!
+```
+
+Then, in the same directory or a parent, create a `.postmark/` directory containing a `video.type.yml` file with the common properties:
+
+```yaml
+WP-Type: post
+Draft: no
+Category: videos
+Author: me@example.com
+```
+
+and a `video.type.twig` file, containing a [Twig template](https://twig.symfony.com/doc/2.x/templates.html) for the body text:
+
+```markdown
+{{ body }}
+
+{% for video in Videos %}
+## {{ video.title }}
+[video src="{{ video.url }}"]
+{% endfor %}
+```
+
+Then, every document with  `Prototype: video` in its front matter will have the specified post type, category, and author, as well as being formatted by adding any items listed in `Videos:` after the body.
+
+Or, if you'd rather specify the type using just one file, you can combine the properties and template into a single `video.type.md` file, putting the properties in front matter, and the Twig template (if any) in the body.
+
+If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then the properties in `.type.yml` override those in `.type.md`, and the template in `.type.twig` *wraps* the output of the template in `.type.md`.  If `.type.md`
+
+#### Template Processing
+
+Twig templates (in `.type.twig` or `.type.md`) are used to generate *markdown* (not HTML), possibly containing Wordpress shortcodes as well.  Templates are processed statically at *sync time*, not during Wordpress page generation, and only have access to data from the document being synced.  The "variables" supplied to the template are the front-matter properties, plus `body` for the body text.
+
+Templates can use full Twig syntax, including macros, the `extends` tag and `include()` function, which means that you can put other template files in your `.postmark` directory and then use them as partials or base templates, similar to other static site generators.  For example, above we could have done something like this:
+
+```twig
+{% from "macros.twig" import video_block %}
+{{ body }}
+
+{% for video in Videos %}
+{{ video_block(video) }}
+{% endfor %}
+```
+
+with a `macros.twig` in our `.postmark` directory containing:
+
+```twig
+{% macro video_block(video) %}
+## {{ video.title }}
+[video src="{{ video.url }}"]
+{% endmacro %}
+```
+
+#### Inheritance and Template Re-Use
+
+A limited form of prototype inheritance is supported: if a prototype has a `.type.md` file with a `Prototype:`, then *that* prototype's properties are treated as defaults for the `.type.md`.  (Recursively, if the second prototype itself has a `Prototype:`).  Only properties are inherited, not templates, since applying a template to a template is unlikely to be useful.  If you need to share a template between multiple prototypes, put it in a separate `.twig` file, and then use Twig's `include()` (or `extends` or `import`) to apply it in each of the places where it's needed.
+
+#### Syncing Changes To Prototypes and Templates
+
+Currently, postmark does not automatically re-sync unchanged documents whose prototype or template files have changed.  You can manually re-sync such documents using the `--force` option.  For convenience, you may wish to use a file-watching tool to do this automatically, e.g. via .[devkit](https://github.com/bashup/.devkit)'s [reflex-watch](https://github.com/bashup/.devkit#reflex-watch) module:
+
+~~~shell
+# Changes to content should be synced immediately, w/full sync at watch start
+# and when templates or prototypes change
+
+before "watch" wp postmark tree ./content
+watch 'content/**/*.md' '!**/.postmark/*.md' -- wp postmark sync {}
+watch 'content/.postmark/**' -- wp postmark tree ./content --force
+~~~
+
+The above .devkit configuration watches `./content` for changes to individual documents and runs `wp postmark sync` on the specific changed documents.  But if a file under `./content/.postmark` is changed, it resyncs the entire `./content` tree with `--force`, ensuring that all documents are up-to-date.
+
 ## Actions and Filters
 
 ### Markdown Formatting
@@ -217,7 +310,6 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
-* Templates or prototypes for creating posts of a particular type, either creating the markdown file or as DB defaults
 * Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages
 * Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)

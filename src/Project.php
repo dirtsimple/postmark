@@ -1,20 +1,72 @@
 <?php
 namespace dsi\Postmark;
+use Twig\Loader;
+use Twig\Environment;
+use Mustangostang\Spyc;
 
 class Project {
 
 	protected $root;
 
-	function __construct($root) {
+	function __construct($root, $base) {
 		$this->root = $root;
+		$this->base = $base;
+		$this->loader = new Loader\ArrayLoader();
+		$chain = new Loader\ChainLoader( array($this->loader) );
+		if ( is_dir("$this->base/.postmark") ) $chain->addLoader(
+			new Loader\FilesystemLoader(".postmark", $this->base)
+		);
+		$this->env = new Environment($chain, array('autoescape'=>false));
+	}
+
+	static function load($doc, $db) {
+		if ( !empty($doc->Prototype) ) {
+			$root = static::root($doc->filename);
+			$typename = $doc->Prototype;
+			$found = false;
+			$typefile = "$root->base/.postmark/$typename.type";
+
+			if ( file_exists("$typefile.yml") ) {
+				$found = true;
+				$doc->meta = $doc->meta + Spyc::YAMLLoad("$typefile.yml");
+			}
+			if ( file_exists("$typefile.md") ) {
+				$found = true;
+				$type = $db->doc("$typefile.md", true)->load();
+				$doc->meta = $doc->meta + $type->meta;
+				if ( ! $doc->is_template && !empty(trim($tpl = $type->body)) ) {
+					$doc->body = $root->render($doc, "$typename.type.md", $tpl);
+				}
+			}
+			if ( file_exists("$typefile.twig") ) {
+				$found = true;
+				if ( ! $doc->is_template ) $doc->body = $root->render($doc, "$typename.type.twig");
+			}
+			if ( ! $found ) {
+				throw new Error(
+					__('%s: No %s type found at %s', 'postmark'), $doc->filename, $typename, "$typefile.{yml,twig,md}"
+				);
+			}
+		}
+		do_action('postmark_load', $doc);
+	}
+
+	function render($doc, $tmpl_name, $template=null) {
+		if ( preg_match( '"^(/\s*\n)?```twig\n(.*)\n```(\n\s*)?$"is', $template, $m) ) {
+			$template = $m[2];
+		}
+		if (!is_null($template)) $this->loader->setTemplate($tmpl_name, $template);
+		return $this->env->render($tmpl_name,
+			array( 'doc' => $doc, 'body' => $doc->body ) + $doc->meta
+		);
 	}
 
 	static function root($file) {
 		static $roots = array();
 		return $roots[$dir = dirname($file)] = (
-			isset($roots[$dir])        ? $roots[$dir]            : (
-			( $dir == $file )          ? new static($dir)          : (
-			static::is_project($dir)   ? new static(dirname($dir)) : (
+			isset($roots[$dir])        ? $roots[$dir]                    : (
+			( $dir == $file )          ? new static($dir)                : (
+			static::is_project($dir)   ? new static(dirname($dir), $dir) : (
 			static::__root($dir))))
 		);
 	}

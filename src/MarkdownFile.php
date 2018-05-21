@@ -41,4 +41,5 @@ class MarkdownFile {
 
 	function __get($key) { return $this->meta($key); }
 	function __set($key, $val) { $this->meta[$key]=$val; }
+	function __isset($key) { return isset($this->meta[$key]); }
 }

@@ -10,23 +10,26 @@ class Document extends MarkdownFile {
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
 	protected $id, $db, $loaded=false;
-	public $filename, $postinfo;
+	public $filename, $postinfo, $is_template;
 
-	function __construct($db, $filename) {
+	function __construct($db, $filename, $is_tmpl=false) {
 		$this->db = $db;
 		$this->filename = $filename;
+		$this->is_template = $is_tmpl;
 	}
 
 	function load() {
 		if (! $this->loaded) {
-			$this->loadFile( $this->filename )->loaded = true;
-			do_action('postmark_load', $this);
+			$this->loadFile( $this->filename );
+			$this->loaded = true;
+			Project::load($this, $this->db);
 		}
 		return $this;
 	}
 
 	function __get($key) { return $this->load()->meta($key); }
 	function __set($key, $val) { $this->load()->meta[$key]=$val; }
+	function __isset($key) { return isset($this->load()->meta[$key]); }
 
 	function key()    { return Project::cache_key($this->filename); }
 	function synced() { return $this->db->cachedPost($this); }
@@ -65,8 +68,9 @@ class Document extends MarkdownFile {
 
 	function splitTitle() {
 		$html = $this->postinfo['post_content'] ?: '';
-		if ( preg_match('"^\s*<h([1-6])>(.*?)</h\1>(.*)"im', $html, $m) ) {
-			$this->postinfo['post_content'] = $m[3]; return $m[2] ?: '';
+		if ( preg_match('"^\s*<h([1-6])>(.*?)</h\1>(.*)"is', $html, $m) ) {
+			$this->postinfo['post_content'] = $m[3];
+			return $m[2] ?: '';
 		}
 	}
 

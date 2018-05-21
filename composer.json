@@ -36,6 +36,7 @@
         "rarst/wpdatetime": "^0.3.0",
         "league/commonmark": "^0.17.5",
         "webuni/commonmark-table-extension": "^0.8.0",
-        "onemorething/commonmark-strikethrough-extension": "^0.13.0"
+        "onemorething/commonmark-strikethrough-extension": "^0.13.0",
+        "twig/twig": "^2.4"
     }
 }

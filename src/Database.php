@@ -28,9 +28,9 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
-	function doc($file) {
+	function doc($file, $is_tmpl=false) {
 		$file = Project::realpath($file);
-		return isset($this->docs[$file]) ? $this->docs[$file] : $this->docs[$file] = new Document($this, $file);
+		return isset($this->docs[$file]) ? $this->docs[$file] : $this->docs[$file] = new Document($this, $file, $is_tmpl);
 	}
 
 	function docs($pat) { return array_map(array($this, 'doc'), Project::find($pat)); }
