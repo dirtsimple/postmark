@@ -48,7 +48,7 @@ class Formatter {
 		}
 	}
 
-	protected function addExtension($env, $name, $ext) {
+	protected static function addExtension($env, $name, $ext) {
 		switch (true) {
 		case $ext instanceof Extension\ExtensionInterface                 : $env->addExtension($ext);         break;
 		case $ext instanceof Block\Parser\BlockParserInterface            : $env->addBlockParser($ext);       break;
