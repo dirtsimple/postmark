@@ -1,5 +1,5 @@
 <?php
-namespace dsi\Postmark;
+namespace dirtsimple\Postmark;
 use Twig\Loader;
 use Twig\Environment;
 use Mustangostang\Spyc;

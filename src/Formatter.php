@@ -1,5 +1,5 @@
 <?php
-namespace dsi\Postmark;
+namespace dirtsimple\Postmark;
 
 use League\CommonMark\Block;
 use League\CommonMark\CommonMarkConverter;

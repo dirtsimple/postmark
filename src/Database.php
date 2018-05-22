@@ -1,5 +1,5 @@
 <?php
-namespace dsi\Postmark;
+namespace dirtsimple\Postmark;
 
 class Database {
 

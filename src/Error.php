@@ -1,5 +1,5 @@
 <?php
-namespace dsi\Postmark;
+namespace dirtsimple\Postmark;
 
 class Error extends \Exception {
 	function __construct($message, ...$data) {

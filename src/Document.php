@@ -1,5 +1,5 @@
 <?php
-namespace dsi\Postmark;
+namespace dirtsimple\Postmark;
 
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;

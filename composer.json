@@ -27,7 +27,7 @@
     "autoload": {
         "files": [ "command.php" ],
         "psr-4": {
-            "dsi\\Postmark\\": "src/",
+            "dirtsimple\\Postmark\\": "src/",
             "Webuni\\CommonMark\\AttributesExtension\\": "ext/attrs/"
         }
     },
