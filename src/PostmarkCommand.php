@@ -87,7 +87,7 @@ class PostmarkCommand {
 			WP_CLI::success("$doc->filename successfully synced, ID=$res", "postmark");
 	}
 
-	protected function sync_docs($docs, $flags, $dir=null) {
+	protected static function sync_docs($docs, $flags, $dir=null) {
 		if ( empty($docs) && isset($dir) ) {
 			$dir = Project::realpath($dir);
 			WP_CLI::warning("no .md files found in $dir");

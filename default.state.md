@@ -7,7 +7,7 @@ postmark-module()  { __postmark-set modules content "$1"; }
 postmark-content() { __postmark-set content modules "$1"; }
 
 __postmark-set() {
-	FILTER '%s as $tmp | .postmark.'$1'[$tmp] = true | delete .postmark.'$2'[$tmp]' "$3"
+	FILTER '%s as $tmp | .postmark.'$1'[$tmp] = true | del(.postmark.'$2'[$tmp])' "$3"
 }
 ```
 
@@ -27,7 +27,7 @@ add_action('imposer_impose_postmark', function ($data) {
 		array_keys($modules), array('skip-create'=>true)
 	);
 	if ($content = $data['content']) dirtsimple\Postmark\PostmarkCommand::tree(
-		array_keys($content)
+		array_keys($content), array()
 	);
 }, 10, 1);
 ```
