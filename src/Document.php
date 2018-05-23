@@ -131,10 +131,10 @@ class Document extends MarkdownFile {
 
 	function sync() {
 		# Avoid nested action calls by ensuring parent is synced first:
-		if ( is_wp_error( $res = $this->parent_id() ) ) return $res;
+		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
 		$this->postinfo = array(
-			'post_parent' => $res,
+			'post_parent' => $pid,
 			'meta_input' => array('postmark_cache' => $this->key()),
 		);
 		do_action('postmark_before_sync', $this);
