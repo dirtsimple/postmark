@@ -36,6 +36,7 @@ Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimp
     + [Template Processing](#template-processing)
     + [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
     + [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
+- [Imposer Integration](#imposer-integration)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects and Sync](#document-objects-and-sync)
@@ -235,6 +236,26 @@ watch 'content/.postmark/**' -- wp postmark tree ./content --force
 
 The above .devkit configuration watches `./content` for changes to individual documents and runs `wp postmark sync` on the specific changed documents.  But if a file under `./content/.postmark` is changed, it resyncs the entire `./content` tree with `--force`, ensuring that all documents are up-to-date.
 
+## Imposer Integration
+
+Postmark provides a [state file](default.state.md) for optional integration with [imposer](https://github.com/dirtsimple/imposer#readme): just add a shell block like this to your `imposer-project.md`, or any state file that needs to include markdown content as part of its state:
+
+```shell
+require "dirtsimple/postmark"      # load the API
+
+# Use postmark-module for prepackaged .md files that should be read-only and have
+# ID: values already:
+postmark-module "$__DIR__/stuff"   # sync `stuff/` next to this file, with --skip-create option
+
+# Or use postmark-content for writable directories where you might be adding new .md
+# files without an existing ID:
+postmark-content "my-content"      # sync `my-content/` at the project root
+```
+
+You can actually use this to distribute packages containing markdown content, and have them automatically loaded into the site(s) that use them.
+
+(Note: the `postmark-module` and `postmark-content` functions don't perform an immediate sync when called.  As with all other imposer configuration, a JSON configuration map is built up first, then run during the PHP processing phase of running `imposer apply`.  See the imposer docs for an overview of the process.)
+
 ## Actions and Filters
 
 ### Markdown Formatting
@@ -310,6 +331,5 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
-* Integration with [imposer](https://github.com/dirtsimple/imposer)
 * Exporting existing posts or pages
 * Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)

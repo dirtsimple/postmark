@@ -25,10 +25,10 @@ class PostmarkCommand {
 	 * [--porcelain]
 	 * : Output just the ID of the created or updated post
 	 */
-	function sync( $args, $flags ) {
+	static function sync( $args, $flags ) {
 		try {
-			$db = $this->db($flags);
-			$this->sync_docs( array_map( array($db, 'doc'), $args ), $flags );
+			$db = static::db($flags);
+			static::sync_docs( array_map( array($db, 'doc'), $args ), $flags );
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
@@ -51,11 +51,11 @@ class PostmarkCommand {
 	 * [--porcelain]
 	 * : Output just the IDs of the created or updated posts
 	 */
-	function tree( $args, $flags ) {
+	static function tree( $args, $flags ) {
 		try {
-			$db = $this->db($flags);
+			$db = static::db($flags);
 			foreach ( $args as $arg )
-				$this->sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
+				static::sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
@@ -64,19 +64,19 @@ class PostmarkCommand {
 	/**
 	 * Generate a unique ID for use in a markdown file
 	 */
-	function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
+	static function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
 
 
 	// -- non-command utility methods --
 
-	protected function db($flags) {
+	protected static function db($flags) {
 		return new Database(
 			! WP_CLI\Utils\get_flag_value($flags, 'force', false),
 			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
 		);
 	}
 
-	protected function result($doc, $res, $porcelain, $already=true) {
+	protected static function result($doc, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
 			WP_CLI::error($res);
 		elseif ( $porcelain )
@@ -98,9 +98,9 @@ class PostmarkCommand {
 			if     ( ! $doc->file_exists() )
 				WP_CLI::error("$doc->filename does not exist");
 			elseif ( $res = $doc->synced() )
-				$this->result($doc, $res,         $porcelain, true);
+				static::result($doc, $res,         $porcelain, true);
 			else
-				$this->result($doc, $doc->sync(), $porcelain, false);
+				static::result($doc, $doc->sync(), $porcelain, false);
 		}
 	}
 
