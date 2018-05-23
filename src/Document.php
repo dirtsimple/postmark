@@ -182,7 +182,7 @@ class Document extends MarkdownFile {
 	}
 
 	protected function _syncinfo_content() { return (
-		$this->syncField( 'post_status',  empty($this->postinfo['ID']) ? 'active' : null ) &&
+		$this->syncField( 'post_status',  ( empty($this->postinfo['ID']) || $this->Draft === false ) ? 'publish' : null ) &&
 		$this->syncField( 'post_content', array($this, 'html'),          true ) &&
 		$this->syncField( 'post_title',   array($this, 'splitTitle'),    true ) &&
 		$this->syncField( 'post_excerpt', array($this, 'formatExcerpt'), $this->Excerpt ) &&
