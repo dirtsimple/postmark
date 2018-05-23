@@ -23,12 +23,9 @@ The implementation just runs the trees with the specified options: first the mod
 
 ```php
 add_action('imposer_impose_postmark', function ($data) {
-	if ($modules = $data['modules']) dirtsimple\Postmark\PostmarkCommand::tree(
-		array_keys($modules), array('skip-create'=>true)
-	);
-	if ($content = $data['content']) dirtsimple\Postmark\PostmarkCommand::tree(
-		array_keys($content), array()
-	);
+	if ($data) $cmd = new dirtsimple\Postmark\PostmarkCommand;
+	if ($trees = $data['modules']) $cmd->tree(array_keys($trees), array('skip-create'=>true));
+	if ($trees = $data['content']) $cmd->tree(array_keys($trees), array());
 }, 10, 1);
 ```
 

@@ -25,10 +25,10 @@ class PostmarkCommand {
 	 * [--porcelain]
 	 * : Output just the ID of the created or updated post
 	 */
-	static function sync( $args, $flags ) {
+	function sync( $args, $flags ) {
 		try {
-			$db = static::db($flags);
-			static::sync_docs( array_map( array($db, 'doc'), $args ), $flags );
+			$db = $this->db($flags);
+			$this->sync_docs( array_map( array($db, 'doc'), $args ), $flags );
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
@@ -51,11 +51,11 @@ class PostmarkCommand {
 	 * [--porcelain]
 	 * : Output just the IDs of the created or updated posts
 	 */
-	static function tree( $args, $flags ) {
+	function tree( $args, $flags ) {
 		try {
-			$db = static::db($flags);
+			$db = $this->db($flags);
 			foreach ( $args as $arg )
-				static::sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
+				$this->sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
@@ -64,19 +64,19 @@ class PostmarkCommand {
 	/**
 	 * Generate a unique ID for use in a markdown file
 	 */
-	static function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
+	function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
 
 
 	// -- non-command utility methods --
 
-	protected static function db($flags) {
+	protected function db($flags) {
 		return new Database(
 			! WP_CLI\Utils\get_flag_value($flags, 'force', false),
 			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
 		);
 	}
 
-	protected static function result($doc, $res, $porcelain, $already=true) {
+	protected function result($doc, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
 			WP_CLI::error($res);
 		elseif ( $porcelain )
@@ -87,7 +87,7 @@ class PostmarkCommand {
 			WP_CLI::success("$doc->filename successfully synced, ID=$res", "postmark");
 	}
 
-	protected static function sync_docs($docs, $flags, $dir=null) {
+	protected function sync_docs($docs, $flags, $dir=null) {
 		if ( empty($docs) && isset($dir) ) {
 			$dir = Project::realpath($dir);
 			WP_CLI::warning("no .md files found in $dir");
@@ -98,9 +98,9 @@ class PostmarkCommand {
 			if     ( ! $doc->file_exists() )
 				WP_CLI::error("$doc->filename does not exist");
 			elseif ( $res = $doc->synced() )
-				static::result($doc, $res,         $porcelain, true);
+				$this->result($doc, $res,         $porcelain, true);
 			else
-				static::result($doc, $doc->sync(), $porcelain, false);
+				$this->result($doc, $doc->sync(), $porcelain, false);
 		}
 	}
 
