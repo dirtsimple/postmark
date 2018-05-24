@@ -33,7 +33,7 @@ class Document extends MarkdownFile {
 
 	function key()    { return Project::cache_key($this->filename); }
 	function synced() { return $this->db->cachedPost($this); }
-	function exists() { return $id = $this->current_id() && ! is_wp_error($id); }
+	function exists() { return ($id = $this->current_id()) && ! is_wp_error($id); }
 
 	function current_id() {
 		$id = $this->id ?: $this->synced() ?: $this->db->postForDoc($this);
@@ -111,7 +111,7 @@ class Document extends MarkdownFile {
 
 	protected function _parseDate($gmtField, $date) {
 		$date = new WpDateTime($date, WpDateTimeZone::getWpTimezone());
-		$this->syncField( $gmtField, $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s') );
+		$this->syncField( $gmtField, $date->setTimezone(new WpDateTimeZone('UTC'))->format('Y-m-d H:i:s') );
 		return $date->format('Y-m-d H:i:s');	// localtime version
 	}
 

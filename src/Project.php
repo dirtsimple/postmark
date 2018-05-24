@@ -67,7 +67,7 @@ class Project {
 			isset($roots[$dir])        ? $roots[$dir]                    : (
 			( $dir == $file )          ? new static($dir)                : (
 			static::is_project($dir)   ? new static(dirname($dir), $dir) : (
-			static::__root($dir))))
+			static::root($dir))))
 		);
 	}
 
