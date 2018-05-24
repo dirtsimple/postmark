@@ -40,10 +40,6 @@ class Document extends MarkdownFile {
 		return is_wp_error($id) ? $id : $this->id = $id;
 	}
 
-	function save() {
-		return $this->saveAs($this->filename);
-	}
-
 	function post_id() {
 		return $this->exists() ? $this->id : $this->sync();
 	}
