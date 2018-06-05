@@ -40,12 +40,14 @@ class Database {
 	}
 
 	function postForGUID($guid) {
-		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : false);
+		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : Option::postFor($guid));
 	}
 
 	function cache($doc, $res) {
-		if ($res) $this->cache[$doc->key()] = $this->by_uuid[$doc->ID] = $res;
-		return $res;
+		if ($res) {
+			$this->cache[$doc->key()] = $this->by_uuid[$doc->ID] = $res;
+			if ($keypath = Option::parseIdURL($doc->ID)) Option::patch($keypath, $res);  # XXX is_wp_error?
+		}
 	}
 
 	function postForDoc($doc) {

@@ -10,8 +10,8 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * No webserver configuration changes required: files can be synced from any directory on the server, and don't need to be writable or even readable by the web server.  (They do need to be readable by the user running the wp-cli command, though!)
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
-* Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync
-* In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
+* Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync.  Plugins' special pages (like checkout or "my account") can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option Values](#option-values)
+* [Prototypes and Templating](#prototypes-and-templating): In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
 * Markdown is converted using [league/commonmark](league/commonmark) with the [table](https://github.com/webuni/commonmark-table-extension#syntax) and [attribute](https://github.com/webuni/commonmark-attributes-extension#syntax) extensions, and you can add other extensions via filter.  Markdown content can include shortcodes, too.  (Though you may need to backslash-escape adjacent opening brackets to keep them from being treated as markdown footnote links.)
@@ -32,10 +32,13 @@ Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimp
   * [File Format and Directory Layout](#file-format-and-directory-layout)
   * [The `ID:` Field](#the-id-field)
   * [Front Matter Fields](#front-matter-fields)
-  * [Prototypes and Templating](#prototypes-and-templating)
-    + [Template Processing](#template-processing)
-    + [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
-    + [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
+  * [Option URLs](#option-urls)
+    + [Option References](#option-references)
+    + [Option Values](#option-values)
+- [Prototypes and Templating](#prototypes-and-templating)
+  * [Template Processing](#template-processing)
+  * [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
+  * [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
 - [Imposer Integration](#imposer-integration)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
@@ -149,7 +152,61 @@ Please note that Postmark only validates or converts a few of these fields.  Mos
 
 Wordpress plugins or wp-cli packages can add extra fields (or change the handling of existing fields) by registering actions and filters.
 
-### Prototypes and Templating
+### Option URLs
+
+Option URLs are URLs whose scheme  is either `option-id:` (for an option reference) or `option-value:` (for an option value), followed by a `/`-separated path that begins with a Wordpress option name.  By setting the `ID:` of your document to an option URL, you can cause the document's `post_id` or HTML content to be synced to the relevant subkey of that option.
+
+The path portion of an option URL is essentially the same as the arguments given to `wp option pluck`, except that each argument is urlencoded and then joined with a `/`.  Each part of the path is either an array key or property name within the option value.  Any non-alphanumeric characters in any part of the path (other than `-` or `_`)  should be `%`-encoded, as failure to do so may produce errors or other undesirable results.
+
+#### Option References
+
+Many Wordpress plugins have special pages (like carts, checkouts, "my account", etc.) that are referenced in their settings as a post ID.  You can sync a markdown file to these pages using an `option-id:` URL in the document's `ID:`, e.g.:
+
+```yaml
+ID: "option-id:edd_settings/purchase_page"
+```
+
+A post with an `option-id:` URL as its `ID` will be synced slightly differently than normal.  As usual, if a post with the given GUID exists, the markdown file is synced into that post.  Afterward, the specified option will be edited to reflect the Wordpress post_id of that that post.  (In the above example, the `purchase_page` key under the `edd_settings` option will be created or changed).
+
+However, if no post with the given GUID exists, the option value (e.g. the `purchase_page` key under the `edd_settings` option) will be checked for a valid post ID.  If the value exists and references an existing post, **the existing post's GUID will be changed** and its contents overwritten by the sync.  (This allows you to replace the contents of the default page(s) generated by a plugin when it's first activated, without manual intervention or creating a duplicate post.)
+
+Other examples of option references you may find useful:
+
+**AffiliateWP**
+* `option-id:affwp_settings/affiliates_page`
+
+**Easy Digital Downloads**
+* `option-id:edd_settings/failure_page`
+* `option-id:edd_settings/purchase_page`
+* `option-id:edd_settings/purchase_history_page`
+* `option-id:edd_settings/success_page`
+
+**LifterLMS**
+* `option-id:lifterlms_checkout_page_id`
+* `option-id:lifterlms_memberships_page_id`
+* `option-id:lifterlms_myaccount_page_id`
+* `option-id:lifterlms_shop_page_id`
+* `option-id:lifterlms_terms_page_id`
+
+**WooCommerce**
+* `option-id:woocommerce_cart_page_id`
+* `option-id:woocommerce_checkout_page_id`
+
+(Note: this list is likely far from comprehensive, even for the plugins listed.  Also, since new releases of the above plugins could potentially add, rename, or remove any of these settings, you should always test your sync to a non-production database before updating plugins in production.)
+
+#### Option Values
+
+Some Wordpress plugins have options containing HTML content, that you might prefer to write using Markdown and/or maintain under revision control.  You can sync files to these settings using an `option-value:` URL in each document's `ID:`, e.g.:
+
+```yaml
+ID: "option-value:edd_settings/purchase_receipt"
+```
+
+A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) hooks are invoked during the process, and no post ID will be output for the processed file.
+
+Note that unlike regular posts/pages and option references (which can skip processing if the file hasn't changed and `--force` isn't used), the formatting and sync of an option value will *always* run, even if the file hasn't changed and `--force` is omitted.  (However, the option value in the database will only be changed if the HTML output is different from the value already present there.)
+
+## Prototypes and Templating
 
 In some cases, you may have a lot of documents with common field values or structure.  You can keep your  project DRY (i.e., Don't Repeat Yourself) by creating *prototypes*.  For example, if you have a lot of "video" pages that contain one or more videos with some introductory text, you could make file(s) like this:
 
@@ -193,7 +250,7 @@ Or, if you'd rather specify the type using just one file, you can combine the pr
 
 If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then the properties in `.type.yml` override those in `.type.md`, and the template in `.type.twig` *wraps* the output of the template in `.type.md`.  If `.type.md`
 
-#### Template Processing
+### Template Processing
 
 Twig templates (in `.type.twig` or `.type.md`) are used to generate *markdown* (not HTML), possibly containing Wordpress shortcodes as well.  Templates are processed statically at *sync time*, not during Wordpress page generation, and only have access to data from the document being synced.  The "variables" supplied to the template are the front-matter properties, plus `body` for the body text.
 
@@ -217,11 +274,11 @@ with a `macros.twig` in our `.postmark` directory containing:
 {% endmacro %}
 ```
 
-#### Inheritance and Template Re-Use
+### Inheritance and Template Re-Use
 
 A limited form of prototype inheritance is supported: if a prototype has a `.type.md` file with a `Prototype:`, then *that* prototype's properties are treated as defaults for the `.type.md`.  (Recursively, if the second prototype itself has a `Prototype:`).  Only properties are inherited, not templates, since applying a template to a template is unlikely to be useful.  If you need to share a template between multiple prototypes, put it in a separate `.twig` file, and then use Twig's `include()` (or `extends` or `import`) to apply it in each of the places where it's needed.
 
-#### Syncing Changes To Prototypes and Templates
+### Syncing Changes To Prototypes and Templates
 
 Currently, postmark does not automatically re-sync unchanged documents whose prototype or template files have changed.  You can manually re-sync such documents using the `--force` option.  For convenience, you may wish to use a file-watching tool to do this automatically, e.g. via .[devkit](https://github.com/bashup/.devkit)'s [reflex-watch](https://github.com/bashup/.devkit#reflex-watch) module:
 

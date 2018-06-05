@@ -79,12 +79,15 @@ class PostmarkCommand {
 	protected function result($doc, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
 			WP_CLI::error($res);
-		elseif ( $porcelain )
-			WP_CLI::line($res);
+		elseif ( $porcelain ) {
+			if ( $res !== null ) WP_CLI::line($res);
+		}
 		elseif ( $already )
 			WP_CLI::debug("$doc->filename already synced", "postmark");
-		else
+		elseif ( $res !== null )
 			WP_CLI::success("$doc->filename successfully synced, ID=$res", "postmark");
+		else
+			WP_CLI::success("$doc->filename successfully synced", "postmark");
 	}
 
 	protected function sync_docs($docs, $flags, $dir=null) {

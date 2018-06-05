@@ -126,6 +126,9 @@ class Document extends MarkdownFile {
 	}
 
 	function sync() {
+		# Option value? Update directly
+		if ( $keypath = Option::parseValueURL($this->ID) ) return Option::patch($keypath, $this->html());
+
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
