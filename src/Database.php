@@ -20,7 +20,7 @@ class Database {
 		$this->by_guid = $this->_index("SELECT ID, guid FROM $wpdb->posts WHERE $filter");
 		if ( $cache ) $this->cache = $this->_index(
 			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
-			 WHERE meta_key='postmark_cache' AND post_id=ID AND $filter"
+			 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
 		); else $this->cache = array();
 	}
 
