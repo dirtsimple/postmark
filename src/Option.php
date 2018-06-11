@@ -18,10 +18,12 @@ class Option {
 		return false;
 	}
 
-	static function parseIdURL($url)    { return static::parseURL($url, 'option-id'); }
-	static function parseValueURL($url) { return static::parseURL($url, 'option-value'); }
+	static function parseIdURL($url)    { return static::parseURL($url, 'x-option-id'); }
+	static function parseValueURL($url) { return static::parseURL($url, 'x-option-value'); }
 
 	protected static function parseURL($url, $scheme=null) {
+		if ( substr($url, 0, 4) !== 'urn:' ) return;
+		$url = substr($url, 4);
 		if ( $scheme && parse_url($url, PHP_URL_SCHEME) !== $scheme ) return;
 		$keypath = array_map( 'urldecode', explode( '/', parse_url($url, PHP_URL_PATH) ) );
 		$parts = array_keys(parse_url($url)); sort($parts); $parts = implode(',', $parts);
