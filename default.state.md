@@ -22,10 +22,12 @@ The implementation just runs the trees with the specified options: first the mod
 ```
 
 ```php
-add_action('imposer_impose_postmark', function ($data) {
-	if ($data) $cmd = new dirtsimple\Postmark\PostmarkCommand;
-	if ($trees = $data['modules']) $cmd->tree(array_keys($trees), array('skip-create'=>true));
-	if ($trees = $data['content']) $cmd->tree(array_keys($trees), array());
-}, 10, 1);
+Imposer::task('Postmark Tree') -> produces('@wp-posts')
+	-> reads( ['postmark', 'modules'], ['postmark', 'content'] )
+	-> steps( function ($modules, $content) {
+		$cmd = new dirtsimple\Postmark\PostmarkCommand;
+		if ($modules) $cmd->tree(array_keys($modules), ['skip-create'=>true]);
+		if ($content) $cmd->tree(array_keys($content), []);
+	});
 ```
 
