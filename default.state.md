@@ -26,8 +26,8 @@ Imposer::task('Postmark Tree') -> produces('@wp-posts')
 	-> reads( ['postmark', 'modules'], ['postmark', 'content'] )
 	-> steps( function ($modules, $content) {
 		$cmd = new dirtsimple\Postmark\PostmarkCommand;
-		if ($modules) $cmd->tree(array_keys($modules), ['skip-create'=>true]);
-		if ($content) $cmd->tree(array_keys($content), []);
+		if ($modules) $cmd->tree(array_keys((array) $modules), ['skip-create'=>true]);
+		if ($content) $cmd->tree(array_keys((array) $content), []);
 	});
 ```
 
