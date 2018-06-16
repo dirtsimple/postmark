@@ -21,7 +21,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 
 Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is always one-way (from the filesystem to the database) but does not overwrite any database contents that aren't specified by the input file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by syncing.
 
-Also like imposer, postmark is bundled with [mantle](https://github.com/dirtsimple/mantle), and when you run mantle's `script/watch` command, posts are automatically synced to your development DB whenever you save their `.md` files.
+Postmark is also similar to imposer in that it's pre-installed by [mantle](https://github.com/dirtsimple/mantle).  Mantle projects also have a  `script/watch` command that watches for changes to markdown files in the project's `content/` directory, and automatically syncs them to your development DB.
 
 ### Contents
 
@@ -295,7 +295,7 @@ The above .devkit configuration watches `./content` for changes to individual do
 
 ## Imposer Integration
 
-Postmark provides a [state file](default.state.md) for optional integration with [imposer](https://github.com/dirtsimple/imposer#readme): just add a shell block like this to your `imposer-project.md`, or any state file that needs to include markdown content as part of its state:
+Postmark provides a [state module](default.state.md) for optional integration with [imposer](https://github.com/dirtsimple/imposer#readme): just add a shell block like this to your `imposer-project.md`, or any state module that needs to include markdown content as part of its state:
 
 ```shell
 require "dirtsimple/postmark"      # load the API
@@ -335,7 +335,7 @@ Note that `postmark_markdown` and `postmark_html` may be invoked several times o
 
 ### Document Objects and Sync
 
-Many filters and actions receive `dsi\Postmark\Document` objects as a parameter.  These objects offer the following API:
+Many filters and actions receive `dirtsimple\Postmark\Document` objects as a parameter.  These objects offer the following API:
 
 * Front-matter fields are accessible as public, writable object properties.  (e.g. `$doc->Foo` returns front-matter field `Foo`) .  Fields that aren't valid PHP property names can be accessed using e.g. `$doc->{'Some-Field'}`.  Missing or empty fields return null; if you want a different default when the field is missing, you can use `$doc->meta('Somename', 'default-value')`.
 * `$doc->exists()` returns truth if the document currently exists in Wordpress (as determined by looking up its `ID` as a Wordpress GUID)
