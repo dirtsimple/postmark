@@ -34,7 +34,7 @@ class Project {
 				$found = true;
 				$type = $db->doc("$typefile.md", true)->load();
 				$doc->meta = $doc->meta + $type->meta;
-				if ( ! $doc->is_template && !empty(trim($tpl = $type->body)) ) {
+				if ( ! $doc->is_template && !empty(trim($tpl = $type->unfence('twig'))) ) {
 					$doc->body = $root->render($doc, "$typename.type.md", $tpl);
 				}
 			}
@@ -52,9 +52,6 @@ class Project {
 	}
 
 	function render($doc, $tmpl_name, $template=null) {
-		if ( preg_match( '"^(/\s*\n)?```twig\n(.*)\n```(\n\s*)?$"is', $template, $m) ) {
-			$template = $m[2];
-		}
 		if (!is_null($template)) $this->loader->setTemplate($tmpl_name, $template);
 		return $this->env->render($tmpl_name,
 			array( 'doc' => $doc, 'body' => $doc->body ) + $doc->meta

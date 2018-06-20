@@ -18,6 +18,20 @@ class MarkdownFile {
 		return $this;
 	}
 
+	function unfence($type, $propName='body') {
+		$text = $this->{$propName};
+		return ( preg_match('_
+			^(?:\s*[\r\n]+)?   # Optional leading whitespace ending w/new line
+			(~~~+|```+)\s*     # unindented commonmark opening fence, w/optional spaces
+			([^`\s]+)          # first word of language tag
+			[^`]*?[\r\n]+      # any other words, new line(s)
+			(.*?[\r\n]+)       # body content, including trailing newlines
+			\1\s*$             # close fence, trailing whitespace, EOF
+			_sx', $text, $m) === 1
+			&& $type === $m[2]
+		) ? $m[3] : $text;
+	}
+
 	function loadFile($file) { return $this->parse(file_get_contents($file)); }
 
 	function dump($filename=null) {

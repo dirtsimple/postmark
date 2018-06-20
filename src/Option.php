@@ -10,7 +10,7 @@ class Option {
 	static function postFor($guid) {
 		if (
 			($keypath = static::parseIdURL($guid)) &&
-			($id = static::pluck($keypath))
+			($id = static::pluck($keypath)) && ($id !== -1)
 		) {
 			if ( is_numeric($id) && get_post($id) ) return $id;
 			WP_CLI::error("$guid value of '$id' is not a valid, current post ID");
@@ -43,9 +43,18 @@ class Option {
 		}
 	}
 
+	static function sanitize_option($option, $value) {
+		global $wp_settings_errors;
+		$ret = sanitize_option($option, $value);
+		foreach ( (array) $wp_settings_errors as $error ) {
+			WP_CLI::error($error['setting'] . ": " . $error['message']);
+		}
+		return $ret;
+	}
+
 	static function patch(array $keypath, $value) {
 		$option	= array_shift($keypath);
-		$old = $current = sanitize_option( $option, get_option( $option ) );
+		$old = $current = static::sanitize_option( $option, get_option( $option ) );
 		if ( is_object($current) ) $old = clone $current;
 		$traverser = new RecursiveDataStructureTraverser($current);
 		try {
@@ -53,7 +62,7 @@ class Option {
 		} catch ( \Exception $e ) {
 			WP_CLI::error( $e->getMessage() );	# XXX return a WP_Error?  Fall through?
 		}
-		$patched = sanitize_option( $option, $traverser->value() );
+		$patched = static::sanitize_option( $option, $traverser->value() );
 		if ( $patched === $old ) return;
 		update_option( $option, $patched ) || WP_CLI::error( "Could not update option '$option'." );
 	}

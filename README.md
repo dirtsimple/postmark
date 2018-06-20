@@ -10,7 +10,8 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * No webserver configuration changes required: files can be synced from any directory on the server, and don't need to be writable or even readable by the web server.  (They do need to be readable by the user running the wp-cli command, though!)
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
-* Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync.  Plugins' special pages (like checkout or "my account") can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option Values](#option-values)
+* Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync.
+* Plugins' special pages (like checkout or "my account") and themes' [custom CSS](#custom-css) can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option Values](#option-values)
 * [Prototypes and Templating](#prototypes-and-templating): In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
@@ -34,6 +35,7 @@ Postmark is also similar to imposer in that it's pre-installed by [mantle](https
   * [Front Matter Fields](#front-matter-fields)
   * [Option URLs](#option-urls)
     + [Option References](#option-references)
+    + [Custom CSS](#custom-css)
     + [Option Values](#option-values)
 - [Prototypes and Templating](#prototypes-and-templating)
   * [Template Processing](#template-processing)
@@ -194,6 +196,31 @@ Other examples of option references you may find useful:
 
 (Note: this list is likely far from comprehensive, even for the plugins listed.  Also, since new releases of the above plugins could potentially add, rename, or remove any of these settings, you should always test your sync to a non-production database before updating plugins in production.)
 
+#### Custom CSS
+
+Wordpress stores custom CSS for themes in a post of type `custom_css`, and saves the post ID in an option.  So you can sync a theme's custom CSS from a markdown file using an `ID:` of `urn:x-option-id:theme_mods_THEME/custom_css_post_id`, where `THEME` is the theme's slug.
+
+As with other [option references](#option-references), if there is an existing option value with the post id of an existing post, that post will be updated with your markdown file's contents.  Or, if the value isn't set (or is the default of `-1`), a new post will be created, and the option value updated to point to the new post.
+
+So, to define custom CSS for the Hestia theme, you would create a markdown file like this:
+
+~~~markdown
+---
+ID: urn:x-option-id:theme_mods_hestia/custom_css_post_id
+WP-Type: custom_css
+Title: hestia
+Slug: hestia
+Comments: closed
+Pings: closed
+Status: publish
+---
+```css
+/* CSS Content Goes Here */
+```
+~~~
+
+The `css` code fence wrapping is optional: it is automatically removed if found on posts of type `custom_css`.  (This is done so that you can take advantage of CSS highlighting in your markdown editor.)  You can fence with either backquotes or tildes (`~`), as long as there are at least three, the opening and closing fences are the same length and not indented, and the first word on the opening fence line is `css` in lower case.
+
 #### Option Values
 
 Some Wordpress plugins have options containing HTML content, that you might prefer to write using Markdown and/or maintain under revision control.  You can sync files to these settings using a `urn:x-option-value:` URL in each document's `ID:`, e.g.:
@@ -246,9 +273,9 @@ and a `video.type.twig` file, containing a [Twig template](https://twig.symfony.
 
 Then, every document with  `Prototype: video` in its front matter will have the specified post type, category, and author, as well as being formatted by adding any items listed in `Videos:` after the body.
 
-Or, if you'd rather specify the type using just one file, you can combine the properties and template into a single `video.type.md` file, putting the properties in front matter, and the Twig template (if any) in the body.
+Or, if you'd rather specify the type using just one file, you can combine the properties and template into a single `video.type.md` file, putting the properties in front matter, and the Twig template (if any) in the body.  (Similar to `custom_css` posts, the body can optionally be wrapped in a fenced code block with a language of `twig`, if you want to take advantage of syntax highlighting support in your markdown editor.)
 
-If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then the properties in `.type.yml` override those in `.type.md`, and the template in `.type.twig` *wraps* the output of the template in `.type.md`.  If `.type.md`
+If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then the properties in `.type.yml` override those in `.type.md`, and the template in `.type.twig` *wraps* the output of the template in `.type.md`.
 
 ### Template Processing
 
