@@ -329,16 +329,18 @@ require "dirtsimple/postmark"      # load the API
 
 # Use postmark-module for prepackaged .md files that should be read-only and have
 # ID: values already:
+
 postmark-module "$__DIR__/stuff"   # sync `stuff/` next to this file, with --skip-create option
 
 # Or use postmark-content for writable directories where you might be adding new .md
 # files without an existing ID:
+
 postmark-content "my-content"      # sync `my-content/` at the project root
 ```
 
-You can actually use this to distribute packages containing markdown content, and have them automatically loaded into the site(s) that use them.
+You can actually use this to distribute wp-cli packages containing markdown content, and have them automatically loaded into the site(s) that use them.
 
-(Note: the `postmark-module` and `postmark-content` functions don't perform an immediate sync when called.  As with all other imposer configuration, a JSON configuration map is built up first, then run during the PHP processing phase of running `imposer apply`.  See the imposer docs for an overview of the process.)
+Note: the `postmark-module` and `postmark-content` functions don't perform an immediate sync when called.  Instead, they record the directory information in the imposer JSON specification object for later parsing during the task-running phase of `imposer apply`.  (See the imposer docs for more on how this works.)
 
 ## Actions and Filters
 
