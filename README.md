@@ -206,16 +206,19 @@ So, to define custom CSS for the Hestia theme, you would create a markdown file 
 
 ~~~markdown
 ---
-ID: urn:x-option-id:theme_mods_hestia/custom_css_post_id
-WP-Type: custom_css
-Title: hestia
-Slug: hestia
+ID:       urn:x-option-id:theme_mods_hestia/custom_css_post_id
+WP-Type:  custom_css
+Title:    hestia
+Slug:     hestia
 Comments: closed
-Pings: closed
-Status: publish
+Pings:    closed
+Status:   publish
 ---
+
 ```css
+
 /* CSS Content Goes Here */
+
 ```
 ~~~
 
