@@ -14,10 +14,6 @@ postmark-content() { __postmark-set content modules "$1"; }
 
 The implementation just runs the trees with the specified options: first the modules, then the content.
 
-```json
-{"postmark": {"modules": {}, "content": {}}}
-```
-
 ```php
 Imposer::task('Postmark Tree') -> produces('@wp-posts')
 	-> reads( ['postmark', 'modules'], ['postmark', 'content'] )

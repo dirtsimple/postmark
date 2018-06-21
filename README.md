@@ -222,7 +222,7 @@ Status:   publish
 ```
 ~~~
 
-The `css` code fence wrapping is optional: it is automatically removed if found on posts of type `custom_css`.  (This is done so that you can take advantage of CSS highlighting in your markdown editor.)  You can fence with either backquotes or tildes (`~`), as long as there are at least three, the opening and closing fences are the same length and not indented, and the first word on the opening fence line is `css` in lower case.
+The `css` code fence wrapping is optional: it is automatically removed if found on posts of type `custom_css`.  (This is done so that you can take advantage of any CSS-specific editing or highlighting features of your markdown editor.)  You can fence with either backquotes or tildes (`~`), as long as there are at least three, the opening and closing fences are the same length and not indented, and the first word on the opening fence line is `css` in lower case.
 
 #### Option Values
 
@@ -276,7 +276,7 @@ and a `video.type.twig` file, containing a [Twig template](https://twig.symfony.
 
 Then, every document with  `Prototype: video` in its front matter will have the specified post type, category, and author, as well as being formatted by adding any items listed in `Videos:` after the body.
 
-Or, if you'd rather specify the type using just one file, you can combine the properties and template into a single `video.type.md` file, putting the properties in front matter, and the Twig template (if any) in the body.  (Similar to `custom_css` posts, the body can optionally be wrapped in a fenced code block with a language of `twig`, if you want to take advantage of syntax highlighting support in your markdown editor.)
+Or, if you'd rather specify the type using just one file, you can combine the properties and template into a single `video.type.md` file, putting the properties in front matter, and the Twig template (if any) in the body.  (Similar to `custom_css` posts, the body can optionally be wrapped in a fenced code block with a language of `twig`, if you want to take advantage of twig-specific editing or highlighting support in your markdown editor.)
 
 If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then the properties in `.type.yml` override those in `.type.md`, and the template in `.type.twig` *wraps* the output of the template in `.type.md`.
 
@@ -422,3 +422,7 @@ This project is still in early development: tests are non-existent, and i18n of 
 
 * Exporting existing posts or pages
 * Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)
+* Some way of handling images/attachments
+* Link translation from relative file links to absolute URLs'
+
+See the full [roadmap/to-do here](https://github.com/dirtsimple/postmark/projects/1).

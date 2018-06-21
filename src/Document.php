@@ -180,14 +180,17 @@ class Document extends MarkdownFile {
 		$this->postinfo = apply_filters('postmark_metadata', $this->postinfo, $this) );
 	}
 
-	protected function _syncinfo_content() { return (
-		$this->syncField( 'post_status',  ( empty($this->postinfo['ID']) || $this->Draft === false ) ? 'publish'             : null ) &&
-		$this->syncField( 'post_content', ( $this->postinfo['post_type'] === 'custom_css'          ) ? $this->unfence('css') : null ) &&
+	protected function _syncinfo_content() {
+		$new_or_non_draft = empty($this->postinfo['ID']) || $this->Draft === false;
+		$is_css = array_key_exists('post_type', $this->postinfo) && $this->postinfo['post_type'] === 'custom_css';
+		return
+		$this->syncField( 'post_status',  $new_or_non_draft ? 'publish'   : null ) &&
+		$this->syncField( 'post_content', $is_css ? $this->unfence('css') : null ) &&
 		$this->syncField( 'post_content', array($this, 'html'),          true ) &&
 		$this->syncField( 'post_title',   array($this, 'splitTitle'),    true ) &&
 		$this->syncField( 'post_excerpt', array($this, 'formatExcerpt'), $this->Excerpt ) &&
 		$this->syncField( 'post_excerpt', array($this, 'splitExcerpt'),  true ) &&
-		$this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) ) &&
+		( $this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) ) &&
 		$this->checkPostType($this->postinfo);
 	}
 
