@@ -357,7 +357,8 @@ Markdown formatting is controlled by the following filters:
 
   * [`Webuni\CommonMark\TableExtension\TableExtension`](https://github.com/webuni/commonmark-table-extension#syntax), which implements Markdown tables,
   * [`Webuni\CommonMark\AttributesExtension\AttributesExtension`](https://github.com/webuni/commonmark-attributes-extension#syntax), which allows adding Kramdown-style HTML attributes to blocks and spans, and
-  * [`OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension`](https://github.com/omt/commonmark-strikethrough-extension/), which turns `~~`-wrapped text into `<del>` elements for strikethrough.
+  * [`OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension`](https://github.com/omt/commonmark-strikethrough-extension/), which turns `~~`-wrapped text into `<del>` elements for strikethrough, and
+  * [`League\CommonMark\Extras\SmartPunct\SmartPunctExtension`](https://github.com/thephpleague/commonmark-extras), which translates dots and hyphens to ellipses and em/en dashes, and converts plain single and double quotes to their left/right versions.
 
 * `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)
 

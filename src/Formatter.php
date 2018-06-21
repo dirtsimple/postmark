@@ -30,6 +30,7 @@ class Formatter {
 				'Webuni\CommonMark\TableExtension\TableExtension' => null,
 				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
 				'OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension' => null,
+				'League\CommonMark\Extras\SmartPunct\SmartPunctExtension' => null,
 			),
 		);
 		$env = Environment::createCommonMarkEnvironment();
