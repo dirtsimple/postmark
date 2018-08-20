@@ -32,7 +32,8 @@
         }
     },
     "require": {
-        "wp-cli/wp-cli": "^1.1.0|dev-master",
+        "wp-cli/wp-cli": "^2",
+        "wp-cli/entity-command": "^2",
         "rarst/wpdatetime": "^0.3.0",
         "league/commonmark": "^0.17.5",
         "league/commonmark-extras": "^0.1.4",
