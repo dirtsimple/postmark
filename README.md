@@ -1,7 +1,7 @@
 Sync Markdown Files to WordPress Posts and Pages
 -------------------
 
-Static site generators let you can use a revision-controlled tree of markdown files to make a site, but don't offer a lot of themes or dynamic features.  Wordpress has lots of themes and dynamic features, but locks up your content in HTML embedded in a database, where you can't use your own editor or revision control anything.
+Static site generators let you use a revision-controlled tree of markdown files to make a site, but don't offer a lot of themes or dynamic features.  Wordpress has lots of themes and dynamic features, but locks up your content in HTML embedded in a database, where you can't use your own editor or revision control anything.
 
 So why not **combine** the two?
 
