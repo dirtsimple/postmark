@@ -23,7 +23,7 @@ class PostmarkCommand {
 	 * : Don't add GUIDs to post files that lack them; exit with an error instead.
 	 *
 	 * [--porcelain]
-	 * : Output just the ID of the created or updated post
+	 * : Output just the ID of the created or updated post (or the GUIDs of option values synced)
 	 */
 	function sync( $args, $flags ) {
 		try {
@@ -49,7 +49,7 @@ class PostmarkCommand {
 	 * : Don't add GUIDs to post files that lack them; exit with an error instead.
 	 *
 	 * [--porcelain]
-	 * : Output just the IDs of the created or updated posts
+	 * : Output just the IDs of the created or updated posts (or the GUIDs of option values synced)
 	 */
 	function tree( $args, $flags ) {
 		try {

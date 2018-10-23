@@ -18,7 +18,9 @@ class Database {
 		$filter = 'post_type NOT IN (' . implode(', ', array_fill(0, count($excludes), '%s')) . ')';
 		$filter = $wpdb->prepare($filter, array_keys($excludes));
 		$this->by_guid = $this->_index("SELECT ID, guid FROM $wpdb->posts WHERE $filter");
-		if ( $cache ) $this->cache = $this->_index(
+		if ( $cache ) $this->cache = array_flip(
+			get_option( 'postmark_option_cache' ) ?: array()
+		) + $this->_index(
 			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
 			 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
 		); else $this->cache = array();
@@ -35,7 +37,7 @@ class Database {
 
 	function docs($pat) { return array_map(array($this, 'doc'), Project::find($pat)); }
 
-	function cachedPost($doc) {
+	function cachedID($doc) {
 		if ( isset($this->cache[$key = $doc->key()]) ) return $this->cache[$key];
 	}
 

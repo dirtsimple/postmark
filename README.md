@@ -22,7 +22,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 
 Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imposer), in that synchronization is always one-way (from the filesystem to the database) but does not overwrite any database contents that aren't specified by the input file(s).  So any part of a post or page that's not in the markdown or YAML (such as comments) are unaffected by syncing.
 
-Postmark is also similar to imposer in that it's pre-installed by [mantle](https://github.com/dirtsimple/mantle).  Mantle projects also have a  `script/watch` command that watches for changes to markdown files in the project's `content/` directory, and automatically syncs them to your development DB.
+(Postmark is also similar to imposer in that it's pre-installed by [mantle](https://github.com/dirtsimple/mantle).  Mantle projects include an optional file watching daemon that detects changes to markdown files in the project's `content/` directory, and automatically syncs them to your DB.)
 
 ### Contents
 
@@ -71,7 +71,7 @@ The two main commands Postmark provides are:
 * `wp postmark sync <file>... [--force] [--skip-create] [--porcelain]`
 * `wp postmark tree <dir>...  [--force] [--skip-create] [--porcelain]`
 
-The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page IDs of the synced files.  (Which means you can get a file's Wordpress ID by passing its filename to `wp postmark sync --porcelain`.)
+The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page/option IDs of the synced files.  (Which means you can get a file's Wordpress post ID or option ID by passing its filename to `wp postmark sync --porcelain`.)
 
 By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect how posts are converted or formatted.)
 
@@ -232,9 +232,9 @@ Some Wordpress plugins have options containing HTML content, that you might pref
 ID: "urn:x-option-value:edd_settings/purchase_receipt"
 ```
 
-A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) hooks are invoked during the process, and no post ID will be output for the processed file.
+A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) hooks are invoked during the process, and the command output will list the `ID:` instead of a Wordpress numeric post ID.
 
-Note that unlike regular posts/pages and option references (which can skip processing if the file hasn't changed and `--force` isn't used), the formatting and sync of an option value will *always* run, even if the file hasn't changed and `--force` is omitted.  (However, the option value in the database will only be changed if the HTML output is different from the value already present there.)
+Since options don't have meta fields, the sync timestamp for options is kept in a (non-autoload) option, `postmark_option_cache`, thereby avoiding unnecessary updates for unchanged documents.  (It is safe to delete this option, however, since the only effect will be to effectively `--force` the next resync of any documents whose `ID:` is an option value.)
 
 ## Prototypes and Templating
 

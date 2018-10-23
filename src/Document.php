@@ -32,7 +32,7 @@ class Document extends MarkdownFile {
 	function __isset($key) { return isset($this->load()->meta[$key]); }
 
 	function key()    { return Project::cache_key($this->filename); }
-	function synced() { return $this->db->cachedPost($this); }
+	function synced() { return $this->db->cachedID($this); }
 	function exists() { return ($id = $this->current_id()) && ! is_wp_error($id); }
 
 	function current_id() {
@@ -126,8 +126,12 @@ class Document extends MarkdownFile {
 	}
 
 	function sync() {
-		# Option value? Update directly
-		if ( $keypath = Option::parseValueURL($this->ID) ) return Option::patch($keypath, $this->html());
+		# Option value? Update directly and cache in options
+		if ( $keypath = Option::parseValueURL($this->ID) ) {
+			Option::patch($keypath, $this->html());
+			Option::patch(array('postmark_option_cache', $this->ID), $this->key(), 'no');
+			return $this->ID;
+		}
 
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
