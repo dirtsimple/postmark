@@ -52,10 +52,11 @@ class Option {
 		return $ret;
 	}
 
-	static function patch(array $keypath, $value) {
+	static function patch(array $keypath, $value, $autoload=null) {
 		$option	= array_shift($keypath);
 		$old = $current = static::sanitize_option( $option, get_option( $option ) );
 		if ( is_object($current) ) $old = clone $current;
+		if ( $current === false && $keypath ) $current = array();
 		$traverser = new RecursiveDataStructureTraverser($current);
 		try {
 			$traverser->insert($keypath, $value);
@@ -64,7 +65,7 @@ class Option {
 		}
 		$patched = static::sanitize_option( $option, $traverser->value() );
 		if ( $patched === $old ) return;
-		update_option( $option, $patched ) || WP_CLI::error( "Could not update option '$option'." );
+		update_option( $option, $patched, $autoload ) || WP_CLI::error( "Could not update option '$option'." );
 	}
 
 	static function normalizedKeyPath(array $keypath) {
