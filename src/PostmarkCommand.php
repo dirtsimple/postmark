@@ -9,6 +9,52 @@ use WP_CLI;
 class PostmarkCommand {
 
 	/**
+	 * Export one or more post(s)
+	 *
+	 * [<post-spec>...]
+	 * : One or more post IDs, GUIDs, URLs, or paths
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--dir=<output-dir>]
+	 * : The directory the post(s) will be exported to. (Default is '.')
+	 *
+	 * [--porcelain]
+	 * : Output just the filenames of the exported posts; an empty line means the post-spec was not found.
+	 *
+	 * [--allow-none]
+	 * : Allow the list of post-specs to be empty (for scripting purposes).  Defaults to true if --porcelain is used.
+	 *
+	 */
+	function export( $args, $options ) {
+
+		$porcelain  = WP_CLI\Utils\get_flag_value($options, 'porcelain',   false);
+		$allow_none = WP_CLI\Utils\get_flag_value($options, 'allow-none', $porcelain);
+
+		$dir = isset($options['dir']) ? WP_CLI\Utils\trailingslashit($options['dir']) : '';
+		$db = new Database(false, false);
+
+		if ( ! $args && ! $allow_none ) WP_CLI::error("No posts specified");
+
+		foreach ( $args as $post_spec ) {
+			$res = $db->export($post_spec, $dir);
+			switch (true) {
+				case is_wp_error( $res ):
+					WP_CLI::error($res);
+					break;
+				case (bool) $porcelain:
+					WP_CLI::line($res ?: "");
+					break;
+				case (bool) $res:
+					WP_CLI::success("Exported post $post_spec to $res", "postmark");
+					break;
+				default:
+					WP_CLI::warning("No post found for $post_spec");
+			}
+		}
+	}
+
+	/**
 	 * Sync one or more post file(s)
 	 *
 	 * <file>...

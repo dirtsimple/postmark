@@ -42,6 +42,7 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
   * [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
   * [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
 - [Imposer Integration](#imposer-integration)
+- [Exporting Posts and Pages](#exporting-posts-and-pages)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects and Sync](#document-objects-and-sync)
@@ -49,6 +50,10 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
     + [postmark_metadata](#postmark_metadata)
     + [postmark_content](#postmark_content)
     + [postmark_after_sync](#postmark_after_sync)
+  * [Export Actions and Filters](#export-actions-and-filters)
+    + [postmark_export_meta](#postmark_export_meta)
+    + [postmark_export](#postmark_export)
+    + [postmark_export_slug](#postmark_export_slug)
   * [Other Filters](#other-filters)
     + [postmark_author_email](#postmark_author_email)
     + [postmark_excluded_types](#postmark_excluded_types)
@@ -79,11 +84,10 @@ To sync a markdown file with Wordpress, the file's front matter must include a g
 
 To add an `ID`, Postmark must be able to write to both the file and the directory in question (to save a backup copy of the file during the change), so you should use `--skip-create` if those permissions are not available to the wp-cli user.
 
-The other command Postmark provides is:
+The other commands Postmark provides are:
 
-* `wp postmark uuid`
-
-which takes no options and just outputs a UUID suitable for use as the `ID:` of a new `.md` file.  (See [The ID: Field](#the-id-field) below, for more info.)
+* `wp export [<post-spec>...] [--dir=<output-dir>] [--porcelain] [--allow-none]` -- export the specified post(s) to markdown files.  (See [Exporting Posts and Pages](#exporting-posts-and-pages), below, for more info.)
+* `wp postmark uuid` --  takes no options and just outputs a UUID suitable for use as the `ID:` of a new `.md` file.  (See [The ID: Field](#the-id-field) below, for more info.)
 
 ### File Format and Directory Layout
 
@@ -350,6 +354,18 @@ You can actually use this to distribute wp-cli packages containing markdown cont
 
 Note: the `postmark-module` and `postmark-content` functions don't perform an immediate sync when called.  Instead, they record the directory information in the imposer JSON specification object for later parsing during the task-running phase of `imposer apply`.  (See the imposer docs for more on how this works.)
 
+## Exporting Posts and Pages
+
+To facilitate working with specialized post types, postmark provides a `wp postmark export` command, which creates markdown files in a specified directory, given a list of post IDs, GUIDs, or URLs.
+
+Each export file is given a name based on its slug (i.e., its `post_name`), possibly with a `-` and a number at the end.  If a file of the given name already exists, it's checked to see if it has the same GUID -- if so, the file is overwritten, otherwise the number is incremented and the next candidate is checked.
+
+(So if, for example, there are ten posts with unique GUIDs being exported with a `post_name` of `foo`, they will end up in `foo.md`, `foo-1.md`, up through `foo-9.md`, and repeated exports of any of the ten will use the same filename as was used before, if none are deleted and the `post_name`s don't change.)
+
+Currently, post content is exported to markdown files *as-is*, without any attempt to translate HTML back to markdown.  In addition, a great many default-valued or empty fields are likely to be included in the YAML front matter.  For this reason, exported posts must be manually edited to resolve these issues.  Alternately, you can use the [export actions and filters](#export-actions-and-filters) to convert or clean up the content during the export process.  (e.g. to remove meta fields that should not be placed under revision control.)
+
+Also note: a post's parent, menu order, and MIME type are currently *not* included in its export file, since menu order and MIME type are used only for menu items and attachments, and postmark determines a post's parent (if any) using its directory location.  (The post's `_thumbnail_id` metadata is also excluded, since it references an integer ID that could vary between databases.)
+
 ## Actions and Filters
 
 ### Markdown Formatting
@@ -410,6 +426,24 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 
 `do_action('postmark_after_sync', Document $doc, WP_Post $rawPost)` allows post-sync actions to be run on the document and/or resulting post.  `$rawPost` is a `raw`-filtered Wordpress WP_Post object, reflecting the now-synced post.  This can be used to process front matter fields that require the post ID to be known (e.g. adding data to custom tables).
 
+### Export Actions and Filters
+
+In each of the below actions and filters, the `$md` argument is a `dirtsimple\Postmark\MarkdownFile` object, whose `body` is the `post_content` of the post being exported, and whose other properties will be exported as YAML frontmatter at the head of the document.  Both the actions and filters can read, set, or unset these properties as needed, thereby altering what will be written to the output file.
+
+The hooks below are listed in execution order:
+
+#### postmark_export_meta
+
+`apply_filters('postmark_export_meta', array $postmeta, MarkdownFile $md, WP_Post $post)` filters the array of post metadata in `$postmeta` that will be assigned to `$md->{'Post-Meta'}`.  You can use this to unset meta values that would not be useful in the output, or set document fields from them.  (For example, postmark itself sets `$md->Template` from the `$meta['_wp_page_template']` and then unsets it from `$meta`.)
+
+#### postmark_export
+
+`do_action('postmark_export', MarkdownFile $md, WP_Post $post)` is called once for each export, with a fully-populated MarkdownFile object, before the output file is written.  You can use this to add, change, or remove fields as needed.  (For example, to add fields for a custom post type with data stored in other tables.)
+
+#### postmark_export_slug
+
+`apply_filters('postmark_export_slug', string $slug, MarkdownFile $md, WP_Post $post, $dir)` filters the slug that will be used to generate the export filename.  `$dir` is the output directory, and is either an empty string (for the current directory) or a directory name with a trailing `/`.  The initial value of `$slug` comes from `$md->Slug`, after the `postmark_export` hook has had the oppoturnity to change it.
+
 ### Other Filters
 
 #### postmark_author_email
@@ -426,7 +460,6 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 This project is still in early development: tests are non-existent, and i18n of the CLI output is spotty.  Future features I hope to include are:
 
-* Exporting existing posts or pages
 * Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)
 * Some way of handling images/attachments
 * Link translation from relative file links to absolute URLs'
