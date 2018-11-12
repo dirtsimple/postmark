@@ -61,8 +61,7 @@ class Database {
 	}
 
 	function newID($doc) {
-		$md = new MarkdownFile;
-		$md->loadFile($file = $doc->filename);
+		$md = MarkdownFile::fromFile($file = $doc->filename);
 		$md->ID = $guid = 'urn:uuid:' . wp_generate_uuid4();
 		return $md->saveAs($file) ? ($doc->ID = $guid) : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}

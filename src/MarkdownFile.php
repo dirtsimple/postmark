@@ -7,6 +7,12 @@ class MarkdownFile {
 
 	public $meta=array(), $body='';
 
+	static function fromFile($file) {
+		$cls = static::class;
+		$inst = new $cls;
+		return $inst->loadFile($file);
+	}
+
 	function parse($text) {
 		$meta = '';
 		$body = $text;
