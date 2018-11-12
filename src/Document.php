@@ -138,7 +138,8 @@ class Document extends MarkdownFile {
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
 		$this->postinfo = array(
 			'post_parent' => $pid,
-			'meta_input' => array('_postmark_cache' => $this->key()),
+			'meta_input' => array('_postmark_cache' => $this->key()) +
+				(array) $this->{'Post-Meta'},
 		);
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {

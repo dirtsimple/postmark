@@ -148,6 +148,11 @@ Password:   # string, sets Wordpress `post_password`
 Weight:     # integer, sets Wordpress `menu_order`
 Pings:      # string, 'open' or 'closed', sets Wordpress `ping_status`
 MIME-Type:  # string, sets Wordpress `post_mime_type`
+
+Post-Meta:  # array of meta keys -> meta values; only the given values are changed
+  a_custom_field: "Good stuff!"
+  _some_hidden_field: 42
+
 ```
 
 Please note that Postmark only validates or converts a few of these fields.  Most are simply passed to Wordpress as-is, which may create problems if you use an invalid value.  (For example, if you assign a custom post type that isn't actually installed, or a status that the post type doesn't support.)  In most cases, however, you can fix such problems simply by changing the value to something valid and re-syncing the file.
