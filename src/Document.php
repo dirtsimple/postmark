@@ -30,6 +30,7 @@ class Document extends MarkdownFile {
 	function __get($key) { return $this->load()->meta($key); }
 	function __set($key, $val) { $this->load()->meta[$key]=$val; }
 	function __isset($key) { return isset($this->load()->meta[$key]); }
+	function __unset($key) { unset($this->load()->meta[$key]); }
 
 	function key()    { return Project::cache_key($this->filename); }
 	function synced() { return $this->db->cachedID($this); }
