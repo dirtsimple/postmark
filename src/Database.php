@@ -70,7 +70,7 @@ class Database {
 		return isset($this->post_types[$post_type]) && !isset($this->exclude_types[$post_type]);
 	}
 
-	function export($post_spec, $dir='.') {
+	function export($post_spec, $dir='') {
 		$guid = null;
 		if ( ! is_numeric($id = $post_spec) ) {
 			if ( $id = $this->postForGUID($post_spec) ) {
@@ -84,74 +84,8 @@ class Database {
 		if (! $post ) return false;
 		if ( is_wp_error($post) ) return $post;
 
-		$md = $this->exportPost($post, $guid);
-		$slug = apply_filters('postmark_export_slug', $md->Slug, $md, $post, $dir);
-		$suff = '';
-		while (
-			file_exists($fn = "$dir$slug$suff.md") &&
-			( MarkdownFile::fromFile($fn)->ID != $md->ID )
-		) $suff--;
-		$res = file_exists($fn) ? $md->saveAs($fn) : $md->dump($fn);
-		return $res ? $fn : false; # XXX new WP_Error
-	}
-
-	protected function exportPost($post, $guid) {
-		$id = $post->ID;
-		$md = new MarkdownFile;
-		$md->body = $post->post_content;
-
-		$md->ID = $guid ?: $post->guid;
-		$md->Title = $post->post_title;
-		$md->Slug = $post->post_name;
-
-		$md->Author = get_user_by('id', $post->post_author)->user_email;
-		$md->Date = $post->post_date_gmt . " UTC";
-		$md->Updated = $post->post_modified_gmt . " UTC";
-
-		$md->Excerpt = $post->post_excerpt;
-
-		$md->{'WP-Type'} = $post->post_type;
-
-		$status = $post->post_status;
-		if ($status === 'publish' || $status === 'draft') {
-			$md->Draft = ($status === 'draft');
-		} else {
-			$md->Status = $status;
-		}
-
-		$terms = array_reduce(
-			wp_get_object_terms( array($id), get_taxonomies() ),
-			function ($terms, $term) {
-				$terms[$term->taxonomy][]=$term->name;
-				return $terms;
-			},
-			array()
-		);
-		if ( isset( $terms['category'] ) ) {
-			$md->Category = $terms['category'];
-			unset( $terms['category'] );
-		}
-		if ( isset( $terms['post_tag'] ) ) {
-			$md->Tags = $terms['post_tag'];
-			unset( $terms['post_tag'] );
-		}
-		if ( $terms ) $md->{'WP-Terms'} = $terms;
-
-		$md->Password = $post->post_password;
-		$md->Comments = $post->comment_status;
-		$md->Pings    = $post->ping_status;
-		if ( isset($post->page_template) ) $md->Template = $post->page_template;
-
-		$meta = array_reduce(
-			array_keys( get_post_meta($id) ),
-			function ($m, $k) use ($id) { $m[$k] = get_post_meta($id, $k, true); return $m; },
-			array()
-		);
-		unset( $meta['_wp_page_template'], $meta['_edit_last'], $meta['_edit_lock'], $meta['_thumbnail_id'] );
-		$md->{'Post-Meta'} = apply_filters('postmark_export_meta', $meta, $md, $post);
-
-		do_action('postmark_export', $md, $post);
-		return $md;
+		$ef = new ExportFile($post, $guid);
+		return $ef->exportTo($dir); # XXX ?: new WP_Error ...
 	}
 
 }
