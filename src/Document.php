@@ -46,7 +46,7 @@ class Document extends MarkdownFile {
 	}
 
 	function file_exists() {
-		return file_exists($this->filename);
+		return file_exists($this->filename) && filesize($this->filename);
 	}
 
 	function parent() {

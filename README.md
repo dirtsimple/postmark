@@ -91,7 +91,7 @@ The other commands Postmark provides are:
 
 ### File Format and Directory Layout
 
-Postmark expects to see markdown files with an `.md` extension and YAML front matter.  If a file is named `index.md`, it will become the Wordpress page/post parent of any other files in that directory or any subdirectory that don't contain its own `index.md`.  If not overridden in the YAML fields, the default slug of a post or page is its filename, minus the `.md` extension.  If the filename is `index.md`, the name of the containing directory is used instead.
+Postmark expects to see non-empty markdown files with an `.md` extension and YAML front matter.  If a file is named `index.md`, it will become the Wordpress page/post parent of any other files in that directory or any subdirectory that don't contain its own `index.md`.  If not overridden in the YAML fields, the default slug of a post or page is its filename, minus the `.md` extension.  If the filename is `index.md`, the name of the containing directory is used instead.
 
 When syncing any individual `.md` file, Postmark searches upward until a matching `index.md` file is found, or a "project root" directory is found.  (A project root is any directory containing a `.git`, `.hg`, `.svn`, or `.postmark` subdirectory.)  The first such `index.md` found becomes the parent page or post of the current `.md` file.  (And it is synced if it doesn't exist in the Wordpress database yet, searching recursively upward for more parents until every parent `index.md` exists and is made the parent of the corresponding child post or page.)
 

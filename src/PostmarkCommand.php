@@ -145,7 +145,7 @@ class PostmarkCommand {
 		foreach ($docs as $doc) {
 			WP_CLI::debug("Syncing $doc->filename", "postmark");
 			if     ( ! $doc->file_exists() )
-				WP_CLI::error("$doc->filename does not exist");
+				WP_CLI::error("$doc->filename is empty or does not exist");
 			elseif ( $res = $doc->synced() )
 				$this->result($doc, $res,         $porcelain, true);
 			else
