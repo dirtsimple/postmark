@@ -1,16 +1,18 @@
 <?php
 namespace dirtsimple\Postmark;
 
+use dirtsimple\fn;
+use dirtsimple\imposer\Imposer;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
+use WP_CLI;
 use WP_Error;
-use dirtsimple\imposer\Imposer;
 
 class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
-	protected $id, $db, $loaded=false;
+	protected $id, $db, $loaded=false, $deferred=false;
 	public $filename, $postinfo, $is_template;
 
 	function __construct($db, $filename, $is_tmpl=false) {
@@ -150,12 +152,18 @@ class Document extends MarkdownFile {
 			remove_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
 			if (!is_wp_error($res)) {
 				$this->db->cache($this, $this->id = $this->postinfo['ID'] = $res);
-				Imposer::task('Postmark cleanup')->steps( array($this, '_mark_imported') );
+				if ( $this->deferred ) $this->_later( array($this, '_mark_imported') );
+				else $this->_mark_imported();
 				do_action('postmark_after_sync', $this, get_post($res));
 			}
 			return $res;
 		}
 		return $this->postinfo['wp_error'];
+	}
+
+	protected function _later($fn) {
+		$this->deferred = true;
+		Imposer::task('Postmark cleanup')->steps( $fn );
 	}
 
 	function _mark_imported() {
@@ -208,4 +216,43 @@ class Document extends MarkdownFile {
 	function filenameError($code, $message) {
 		return new WP_Error($code, sprintf($message, $this->filename));
 	}
+
+	function linkTo($meta_key, $post_or_posts, $async=true) {
+
+		if ( Option::parseValueURL($this->ID) ) WP_CLI::error(
+			sprintf("Can't set meta key %s of %s: file is not a post", $meta_key, $this->filename)
+		);
+
+		$src_id = $this->current_id();
+		$src_id = is_wp_error($src_id) ? false : $src_id;
+
+		$many = is_array($post_or_posts);
+		$keys = $many ? $post_or_posts : array($post_or_posts);
+
+		$tgt_ids = array_map( array($this->db, 'lookupPost'), $keys );
+		$missing = array_filter( $tgt_ids, \dirtsimple\fn('! $_ || is_wp_error($_)') );
+
+		if ( $async && ( $missing || ! $src_id ) ) {
+			# call again synchronously and abort for now
+			$later = fn::bind(array($this,'linkTo'), $meta_key, $post_or_posts, false);
+			return $this->_later( $later );
+		}
+
+		if ( ! $src_id ) WP_CLI::error(
+			sprintf("Can't set meta key %s of %s: file has not been synced", $meta_key, $this->filename)
+		);
+
+		if ($missing) {
+			$missing = implode( ', ', array_intersect_key($keys, $missing) );
+			Imposer::blockOn(
+				'@wp-posts', sprintf(
+					'%s, meta key %s: no post/page found for id(s): %s',
+					$this->filename, $meta_key, $missing
+				)
+			);
+		}
+
+		update_post_meta( $src_id, $meta_key, $many ? $tgt_ids : $tgt_ids[0] );
+	}
+
 }

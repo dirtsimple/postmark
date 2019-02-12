@@ -7,8 +7,13 @@ class Database {
 
 	function __construct($cache=true, $allowCreate=true) {
 		$this->reindex($cache);
+		add_action('wp_insert_post', array($this, '_track_guid'), 10, 2);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
+	}
+
+	function _track_guid($post_ID, $post) {
+		$this->by_guid[ $post->guid ] = $post_ID;
 	}
 
 	function reindex($cache) {
@@ -43,6 +48,10 @@ class Database {
 
 	function postForGUID($guid) {
 		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : Option::postFor($guid));
+	}
+
+	function lookupPost($key) {
+		return $this->postForGUID($key) ?: url_to_postid($key);
 	}
 
 	function cache($doc, $res) {
