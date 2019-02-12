@@ -78,7 +78,7 @@ The two main commands Postmark provides are:
 
 The `sync` command creates or updates posts or pages matching the given `.md` file(s), while the `tree` command processes all `.md` files within the named directories (and all their subdirectories).  The `--porcelain` option makes the output silent except for the Wordpress post/page/option IDs of the synced files.  (Which means you can get a file's Wordpress post ID or option ID by passing its filename to `wp postmark sync --porcelain`.)
 
-By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect how posts are converted or formatted.)
+By default, posts and pages are not updated unless the `.md` file has changed (or been moved/renamed) since the last time it was successfully synced, but `--force` overrides that and syncs all named files or directories, whether changed or not.  (This can be useful if you add or remove plugins that affect how posts are converted or formatted.)  If a file is incompletely synced due to an error, it will be be tried again the next time a similar command is run, even without using `--force`.
 
 To sync a markdown file with Wordpress, the file's front matter must include a globally unique identifier in the `ID` field.  If this value is missing, Postmark will add it automatically, unless you use the `--skip-create` option (in which case you'll get an error message instead).
 

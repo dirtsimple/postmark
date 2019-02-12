@@ -1,6 +1,7 @@
 <?php
 namespace dirtsimple\Postmark;
 use WP_CLI;
+use dirtsimple\imposer\Imposer;
 
 /**
  * Sync posts or pages from static markdown files
@@ -78,6 +79,7 @@ class PostmarkCommand {
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
+		Imposer::run();
 	}
 
 	/**
@@ -105,6 +107,7 @@ class PostmarkCommand {
 		} catch (Error $e) {
 			WP_CLI::error($e->getMessage());
 		}
+		Imposer::run();
 	}
 
 	/**

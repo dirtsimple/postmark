@@ -4,6 +4,7 @@ namespace dirtsimple\Postmark;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
 use WP_Error;
+use dirtsimple\imposer\Imposer;
 
 class Document extends MarkdownFile {
 
@@ -139,8 +140,7 @@ class Document extends MarkdownFile {
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
 		$this->postinfo = array(
 			'post_parent' => $pid,
-			'meta_input' => array('_postmark_cache' => $this->key()) +
-				(array) $this->{'Post-Meta'},
+			'meta_input' => (array) $this->{'Post-Meta'},
 		);
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
@@ -150,11 +150,16 @@ class Document extends MarkdownFile {
 			remove_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
 			if (!is_wp_error($res)) {
 				$this->db->cache($this, $this->id = $this->postinfo['ID'] = $res);
+				Imposer::task('Postmark cleanup')->steps( array($this, '_mark_imported') );
 				do_action('postmark_after_sync', $this, get_post($res));
 			}
 			return $res;
 		}
 		return $this->postinfo['wp_error'];
+	}
+
+	function _mark_imported() {
+		update_post_meta($this->id, '_postmark_cache', $this->key());
 	}
 
 	function _revkeep($num, $post) {

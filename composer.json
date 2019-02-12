@@ -32,6 +32,7 @@
         }
     },
     "require": {
+        "dirtsimple/imposer": "dev-master",
         "wp-cli/wp-cli": "^2",
         "wp-cli/entity-command": "^2",
         "rarst/wpdatetime": "^0.3.0",
