@@ -1,5 +1,7 @@
 <?php
 namespace dirtsimple\Postmark;
+
+use dirtsimple\imposer\Bag;
 use WP_Error;
 
 class ExportFile extends MarkdownFile {
@@ -62,7 +64,9 @@ class ExportFile extends MarkdownFile {
 			array()
 		);
 		unset( $meta['_wp_page_template'], $meta['_edit_last'], $meta['_edit_lock'], $meta['_thumbnail_id'] );
-		$this->{'Post-Meta'} = apply_filters('postmark_export_meta', $meta, $this, $post);
+		$meta = new Bag($meta);
+		do_action('postmark_export_meta', $meta, $this, $post);
+		$this->{'Post-Meta'} = $meta->items();
 
 		do_action('postmark_export', $this, $post);
 	}

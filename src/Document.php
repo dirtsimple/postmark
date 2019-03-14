@@ -2,6 +2,7 @@
 namespace dirtsimple\Postmark;
 
 use dirtsimple\fn;
+use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Imposer;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
@@ -116,14 +117,14 @@ class Document extends MarkdownFile {
 	}
 
 	function syncField($field, $value, $cb=null) {
-		$postinfo = & $this->postinfo;
+		$postinfo = $this->postinfo;
 		if ( isset($postinfo['wp_error']) ) return false;
 		if ( ! isset($postinfo[$field]) ) {
 			if ( func_num_args()>2 ) $value = isset($cb) ? $value() : $cb;
 			if ( isset($value) ) {
 				if ( $field != 'wp_error' && is_wp_error($value) )
 					return $this->syncField('wp_error', $value);
-				$this->postinfo[$field] = $value;
+				$postinfo[$field] = $value;
 			}
 		}
 		return $field != 'wp_error';
@@ -140,13 +141,13 @@ class Document extends MarkdownFile {
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
-		$this->postinfo = array(
+		$this->postinfo = new Bag(array(
 			'post_parent' => $pid,
 			'meta_input' => (array) $this->{'Post-Meta'},
-		);
+		));
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
-			$args = wp_slash( $this->postinfo );
+			$args = wp_slash( $this->postinfo->items() );
 			add_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
 			$res = empty($args['ID']) ? wp_insert_post($args, true) : wp_update_post($args, true);
 			remove_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
@@ -196,12 +197,12 @@ class Document extends MarkdownFile {
 		$this->syncField( 'post_date',       array($this, 'post_date'),     $this->Date    ) &&
 		$this->syncField( 'post_modified',   array($this, 'post_modified'), $this->Updated ) &&
 		# XXX to_ping, pinged, file, context, post_content_filtered, _thumbnail_id, ...
-		$this->postinfo = apply_filters('postmark_metadata', $this->postinfo, $this) );
+		( do_action('postmark_metadata', $this->postinfo, $this) || true ) );
 	}
 
 	protected function _syncinfo_content() {
 		$new_or_non_draft = empty($this->postinfo['ID']) || $this->Draft === false;
-		$is_css = array_key_exists('post_type', $this->postinfo) && $this->postinfo['post_type'] === 'custom_css';
+		$is_css = $this->postinfo->get('post_type') === 'custom_css';
 		return
 		$this->syncField( 'post_status',  $new_or_non_draft ? 'publish'   : null ) &&
 		$this->syncField( 'post_content', $is_css ? $this->unfence('css') : null ) &&
@@ -209,7 +210,7 @@ class Document extends MarkdownFile {
 		$this->syncField( 'post_title',   array($this, 'splitTitle'),    true ) &&
 		$this->syncField( 'post_excerpt', array($this, 'formatExcerpt'), $this->Excerpt ) &&
 		$this->syncField( 'post_excerpt', array($this, 'splitExcerpt'),  true ) &&
-		( $this->postinfo = apply_filters('postmark_content', $this->postinfo, $this) ) &&
+		( do_action('postmark_content', $this->postinfo, $this) || true ) &&
 		$this->checkPostType($this->postinfo);
 	}
 

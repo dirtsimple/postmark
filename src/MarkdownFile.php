@@ -66,7 +66,7 @@ class MarkdownFile extends Bag {
 	}
 
 	function __get($key) {
-		return ($key === 'meta') ? $this->items() : $this[$key];
+		return ($key === 'meta') ? $this->items() : $this->get($key);
 	}
 	function __set($key, $val) {
 		if ($key === 'meta') $this->exchangeArray($val); else $this[$key] = $val;

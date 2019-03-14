@@ -386,42 +386,42 @@ Markdown formatting is controlled by the following filters:
 
 * `apply_filters('postmark_html', string $html, Document $doc, $fieldName)` -- this filter can alter the HTML content of a document (or any of its front-matter fields) immediately after it's converted.  As with the `postmark_markdown` filter, `$fieldName` is either `"body"` or a front-matter field name.
 
-Note that `postmark_markdown` and `postmark_html` may be invoked several times or not at all, as they are run whenever `$doc->html(...)` is called.  If a sync filter or action set `post_content` or `post_excerpt` before Postmark has a chance to, these filters won't be invoked unless the filter or action uses `$doc->html(...)` to do the conversion.
+Note that `postmark_markdown` and `postmark_html` may be invoked several times or not at all, as they are run whenever `$doc->html(...)` is called.  If a sync filter or action set `$postinfo['post_content']` or `$postinfo['post_excerpt']` before Postmark has a chance to, these filters won't be invoked unless the filter or action uses `$doc->html(...)` to do the conversion.
 
 ### Document Objects and Sync
 
 Many filters and actions receive `dirtsimple\Postmark\Document` objects as a parameter.  These objects offer the following API:
 
-* Front-matter fields are accessible as public, writable object properties.  (e.g. `$doc->Foo` returns front-matter field `Foo`) .  Fields that aren't valid PHP property names can be accessed using e.g. `$doc->{'Some-Field'}`.  Missing or empty fields return null; if you want a different default when the field is missing, you can use `$doc->meta('Somename', 'default-value')`.
+* Front-matter fields are accessible as public, writable object properties.  (e.g. `$doc->Foo` returns front-matter field `Foo`) .  Fields that aren't valid PHP property names can be accessed using e.g. `$doc->{'Some-Field'}`.  Missing or empty fields return null; if you want a different default when the field is missing, you can use `$doc->get('Somename', 'default-value')`.
 * `$doc->exists()` returns truth if the document currently exists in Wordpress (as determined by looking up its `ID` as a Wordpress GUID)
 * `$doc->body` is the markdown text of the document, and is a writable property.
 * `$doc->html($propName='body')` converts the named property from Markdown to HTML (triggering the `postmark_markdown` and `postmark_html` filters).
 
-During the sync process, a document builds up a `$postarr` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$postarr` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
+During the sync process, a document builds up a `$doc->postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$doc->postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
 
-For example, Postmark calculates the `post_content` after calling the `postmark_metadata` filter, but before the `postmark_content` filter.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` filter.
+For example, Postmark calculates the `post_content` after calling the `postmark_metadata` action, but before the `postmark_content` action.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` action.
 
-The following actions and filters run during the sync process, in the following order:
+Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  See the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on the other available methods.
+
+The following actions run during the sync process, in the following order:
 
 #### postmark_before_sync
 
 `do_action('postmark_before_sync', Document $doc)` allows modification of the document or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` array, to prevent Postmark from doing its default translations of those fields.  (The array is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo['wp_error']` to a WP_Error instance will force the sync to terminate with the given error.
 
-(Note: `$doc->postinfo` should not be modified from any other action or filter, as changing it after this action will have no practical effect.  During the `postmark_after_sync` actions, its contents reflect the values *passed* to Wordpress, but may not reflect the actual post/page state since the insert or update may have triggered other plugins' actions and filters.)
-
 #### postmark_metadata
 
-`apply_filters('postmark_metadata', array $postarr, Document $doc)` filters the `$postarr` that will be passed to `wp_insert_post` or `wp_update_post`.  This filter can be used to override or extend the calculation of Wordpress fields based on the front matter.
+`do_action('postmark_metadata', $postinfo, Document $doc)` lets you modify the `$postinfo` that will be passed to `wp_insert_post` or `wp_update_post`.  This hook can be used to override or extend the calculation of Wordpress fields based on the front matter.   (Note `$postinfo` here is actually `$doc->postinfo`, passed separately for convenience.)
 
-When this filter runs, `$postarr` is initialized with any Wordpress field values that Postmark has calculated from the front matter,  or which were set in `$doc->postinfo` by `postmark_before_sync` actions.  It does *not*, however, contain the `post_content` or `post_excerpt` yet, unless set by a previous action or filter.
+When this action runs, `$postinfo` is  initialized with any Wordpress field values that Postmark has calculated from the front matter,  or which were set in `$doc->postinfo` by `postmark_before_sync` actions.  It does *not*, however, contain the `post_content` or `post_excerpt` yet, unless set by a previous action or filter.
 
-Functions registered for this filter can set the `post_content` or `post_excerpt` in `$postarr` to pre-empt Postmark from doing so.  They can also set `$postarr['wp_error']` to a WP_Error object to terminate the sync process with an error.
+Functions registered for this action can set the `post_content` or `post_excerpt` in `$postinfo` to pre-empt Postmark from doing so.  They can also set `$postinfo['wp_error']` to a WP_Error object to terminate the sync process with an error.
 
-If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty after processing all functions registered for this filter, Postmark will supply default values by converting the document body from Markdown to HTML, and/or extracting a title and excerpt as needed.
+If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty after processing all functions registered for this action, Postmark will supply default values by converting the document body from Markdown to HTML, and/or extracting a title and excerpt as needed.
 
 #### postmark_content
 
-`apply_filters('postmark_content', array $postarr, Document $doc)` is similar to the `postmark_metadata` filter, except that markdown conversion and title/excerpt extraction have already been done, if needed. 
+`do_action('postmark_content', $postinfo, Document $doc)` is similar to the `postmark_metadata` action, except that markdown conversion and title/excerpt extraction have already been done, if needed. 
 
 #### postmark_after_sync
 
@@ -435,7 +435,7 @@ The hooks below are listed in execution order:
 
 #### postmark_export_meta
 
-`apply_filters('postmark_export_meta', array $postmeta, MarkdownFile $md, WP_Post $post)` filters the array of post metadata in `$postmeta` that will be assigned to `$md->{'Post-Meta'}`.  You can use this to unset meta values that would not be useful in the output, or set document fields from them.  (For example, postmark itself sets `$md->Template` from the `$meta['_wp_page_template']` and then unsets it from `$meta`.)
+`do_action('postmark_export_meta', $postmeta, MarkdownFile $md, WP_Post $post)` lets you modify the contents of  `$postmeta` (which will then be assigned to `$md->{'Post-Meta'}`).  You can use this to unset meta values that would not be useful in the output, or set document fields from them.  (For example, postmark itself sets `$md->Template` from `$postmeta['_wp_page_template']` and then unsets it from `$postmeta`.)  Like `$doc->postinfo` described above, `$postmeta` is a Bag (ArrayObject subclass with [extra methods](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php)) that supports normal array operations like `$postmeta['foo']="bar"`.
 
 #### postmark_export
 
