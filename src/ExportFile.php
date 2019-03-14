@@ -20,7 +20,9 @@ class ExportFile extends MarkdownFile {
 		$this->Title = $post->post_title;
 		$this->Slug = $post->post_name;
 
-		$this->Author = get_user_by('id', $post->post_author)->user_email;
+		if ( $user = get_user_by('id', $post->post_author) )
+			$this->Author = $user->user_email;
+
 		$this->Date = $post->post_date_gmt . " UTC";
 		$this->Updated = $post->post_modified_gmt . " UTC";
 
