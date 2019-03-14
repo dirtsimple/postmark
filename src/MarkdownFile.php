@@ -1,11 +1,14 @@
 <?php
 namespace dirtsimple\Postmark;
+
+use dirtsimple\imposer\Bag;
 use Mustangostang\Spyc;
 
-class MarkdownFile {
+class MarkdownFile extends Bag {
 	/* A MarkdownFile is a combination of front matter and body */
 
-	public $meta=array(), $body='';
+	public $body='';
+	private $meta;  # pseudo-property handled by __get/__set/etc.
 
 	static function fromFile($file) {
 		$cls = static::class;
@@ -19,7 +22,7 @@ class MarkdownFile {
 		if ( preg_match("{^(?:---)[\r\n]+(.*?)[\r\n]+(?:---)[\r\n]+(.*)$}s", $text, $m) === 1) {
 			$meta = $m[1]; $body = $m[2];
 		}
-		$this->meta = ! empty(trim($meta)) ? Spyc::YAMLLoadString(trim($meta)) : array();
+		$this->exchangeArray( ! empty(trim($meta)) ? Spyc::YAMLLoadString(trim($meta)) : array() );
 		$this->body = $body;
 		return $this;
 	}
@@ -41,7 +44,7 @@ class MarkdownFile {
 	function loadFile($file) { return $this->parse(file_get_contents($file)); }
 
 	function dump($filename=null) {
-		$data = sprintf("%s---\n%s", Spyc::YAMLDump( $this->meta, 2, 0 ), $this->body);
+		$data = sprintf("%s---\n%s", Spyc::YAMLDump( $this->items(), 2, 0 ), $this->body);
 		return isset($filename) ? file_put_contents($filename, $data, LOCK_EX) : $data;
 	}
 
@@ -53,14 +56,19 @@ class MarkdownFile {
 	}
 
 	function meta($key=null, $default=null) {
-		if ($key) {
-			if ( array_key_exists($key, $this->meta) ) return $this->meta[$key];
-			else return $default;
-		} else return $this->meta;
+		return $key ? $this->get($key, $default) : $this->items();
 	}
 
-	function __get($key) { return $this->meta($key); }
-	function __set($key, $val) { $this->meta[$key]=$val; }
-	function __isset($key) { return isset($this->meta[$key]); }
-	function __unset($key) { unset($this->meta[$key]); }
+	function __get($key) {
+		return ($key === 'meta') ? $this->items() : $this[$key];
+	}
+	function __set($key, $val) {
+		if ($key === 'meta') $this->exchangeArray($val); else $this[$key] = $val;
+	}
+	function __isset($key) {
+		return ($key === 'meta') ? true : $this->offsetExists($key);
+	}
+	function __unset($key) {
+		if ($key === 'meta') $this->exchangeArray(array()); else parent::__unset($key);
+	}
 }
