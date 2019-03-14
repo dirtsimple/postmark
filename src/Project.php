@@ -28,12 +28,12 @@ class Project {
 
 			if ( file_exists("$typefile.yml") ) {
 				$found = true;
-				$doc->meta = $doc->meta + Spyc::YAMLLoad("$typefile.yml");
+				$doc->inherit( Spyc::YAMLLoad("$typefile.yml") );
 			}
 			if ( file_exists("$typefile.md") ) {
 				$found = true;
 				$type = $db->doc("$typefile.md", true)->load();
-				$doc->meta = $doc->meta + $type->meta;
+				$doc->inherit( $type->meta() );
 				if ( ! $doc->is_template && !empty(trim($tpl = $type->unfence('twig'))) ) {
 					$doc->body = $root->render($doc, "$typename.type.md", $tpl);
 				}
@@ -54,7 +54,7 @@ class Project {
 	function render($doc, $tmpl_name, $template=null) {
 		if (!is_null($template)) $this->loader->setTemplate($tmpl_name, $template);
 		return $this->env->render($tmpl_name,
-			array( 'doc' => $doc, 'body' => $doc->body ) + $doc->meta
+			array( 'doc' => $doc, 'body' => $doc->body ) + $doc->meta()
 		);
 	}
 

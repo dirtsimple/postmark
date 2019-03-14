@@ -59,6 +59,12 @@ class MarkdownFile extends Bag {
 		return $key ? $this->get($key, $default) : $this->items();
 	}
 
+	function inherit(array $other) {
+		$meta = json_decode(json_encode($this->items()));
+		$meta = \dirtsimple\imposer\array_patch_recursive($other, $meta);
+		$this->exchangeArray($meta);
+	}
+
 	function __get($key) {
 		return ($key === 'meta') ? $this->items() : $this[$key];
 	}
