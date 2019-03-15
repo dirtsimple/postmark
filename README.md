@@ -156,6 +156,7 @@ MIME-Type:  # string, sets Wordpress `post_mime_type`
 Post-Meta:  # array of meta keys -> meta values; only the given values are changed
   a_custom_field: "Good stuff!"
   _some_hidden_field: 42
+  delete_me: null  # setting to null deletes the meta key
 
 ```
 
@@ -401,7 +402,10 @@ During the sync process, a document builds up a `$doc->postinfo` array to be pas
 
 For example, Postmark calculates the `post_content` after calling the `postmark_metadata` action, but before the `postmark_content` action.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` action.
 
-Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  See the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on the other available methods.
+Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  You can see the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on most of the other available methods, but there are two special additional methods you might find helpful:
+
+* `$postinfo->set_meta($key, $val)` -- does an `update_post_meta`, setting `$key` to `$val`.  `$key` can be a string or an array: if it's an array, it's treated as a path to a subitem within the meta field, working much like a key path for the wp-cli `wp post meta patch insert` command, except that parent arrays are automatically created.
+* `$postinfo->delete_meta($key)` -- deletes the specified meta key, or if `$key` is an array, it's treated as a path to a sub-item to delete within the meta field, like a key path for the wp-cli `wp post meta patch delete` command.
 
 The following actions run during the sync process, in the following order:
 

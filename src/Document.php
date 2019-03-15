@@ -143,8 +143,18 @@ class Document extends MarkdownFile {
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
 		$postinfo = Imposer::define('@wp-post', $this->ID, 'guid')->set(array(
 			'post_parent' => $pid,
-			'meta_input' => (array) $this->{'Post-Meta'},
 		));
+
+		# Allow filters to override/patch Post-Meta (when they run later)
+		if ( $this->has('Post-Meta') ) {
+			# recode to arrays instead of objects
+			$meta_input = json_decode( json_encode($this['Post-Meta']), true );
+			foreach ( $meta_input as $key => $val ) {
+				if ( $val === null ) $postinfo->delete_meta($key);
+				else $postinfo->set_meta($key, $val);
+			}
+		}
+
 		$this->postinfo = $postinfo;
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
@@ -159,6 +169,7 @@ class Document extends MarkdownFile {
 			});
 			return $ret;
 		}
+		unset($this->postinfo);  # should only exist during sync
 		return $this->postinfo['wp_error'];
 	}
 
