@@ -1,28 +1,34 @@
 <?php
 namespace dirtsimple\Postmark;
 
+use dirtsimple\imposer\Imposer;
+use dirtsimple\imposer\PostModel;
+
 class Database {
 
-	protected $cache, $by_guid, $docs=array(), $allowCreate, $exclude_types, $post_types;
+	protected $cache, $docs=array(), $allowCreate, $exclude_types, $post_types;
 
 	function __construct($cache=true, $allowCreate=true) {
+		add_filter('imposer_nonguid_post_types', array(self::class, 'legacy_filter'));
+		Imposer::resource('@wp-post')->addLookup(
+			array(self::class, 'lookup_by_option_guid'), 'guid'
+		);
 		$this->reindex($cache);
-		add_action('wp_insert_post', array($this, '_track_guid'), 10, 2);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
 	}
 
-	function _track_guid($post_ID, $post) {
-		$this->by_guid[ $post->guid ] = $post_ID;
+	static function legacy_filter($types) {
+		return apply_filters('postmark_excluded_types', $types);
+	}
+
+	static function lookup_by_option_guid($guid) {
+		return Option::postFor($guid) ?: null;
 	}
 
 	function reindex($cache) {
 		global $wpdb;
-		$excludes = apply_filters('postmark_excluded_types', array('revision','edd_payment','shop_order','shop_subscription'));
-		$excludes = array_fill_keys($excludes, 1); ksort($excludes); $this->exclude_types = $excludes;
-		$filter = 'post_type NOT IN (' . implode(', ', array_fill(0, count($excludes), '%s')) . ')';
-		$filter = $wpdb->prepare($filter, array_keys($excludes));
-		$this->by_guid = $this->_index("SELECT ID, guid FROM $wpdb->posts WHERE $filter");
+		$filter = PostModel::posttype_exclusion_filter();
 		if ( $cache ) $this->cache = array_flip(
 			get_option( 'postmark_option_cache' ) ?: array()
 		) + $this->_index(
@@ -47,11 +53,7 @@ class Database {
 	}
 
 	function postForGUID($guid) {
-		return is_wp_error($guid) ? $guid : (isset($this->by_guid[$guid]) ? $this->by_guid[$guid] : Option::postFor($guid));
-	}
-
-	function lookupPost($key) {
-		return $this->postForGUID($key) ?: url_to_postid($key);
+		return is_wp_error($guid) ? $guid : Imposer::resource('@wp-post')->lookup($guid, 'guid');
 	}
 
 	function cache($doc, $res) {

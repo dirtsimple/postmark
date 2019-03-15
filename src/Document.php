@@ -13,7 +13,7 @@ class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
-	protected $id, $db, $loaded=false, $deferred=false;
+	protected $id, $db, $loaded=false;
 	public $filename, $postinfo, $is_template;
 
 	function __construct($db, $filename, $is_tmpl=false) {
@@ -141,38 +141,25 @@ class Document extends MarkdownFile {
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
 		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
-		$this->postinfo = new Bag(array(
+		$postinfo = Imposer::define('@wp-post', $this->ID, 'guid')->set(array(
 			'post_parent' => $pid,
 			'meta_input' => (array) $this->{'Post-Meta'},
 		));
+		$this->postinfo = $postinfo;
 		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
-			$args = wp_slash( $this->postinfo->items() );
-			add_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
-			$res = empty($args['ID']) ? wp_insert_post($args, true) : wp_update_post($args, true);
-			remove_filter( 'wp_revisions_to_keep', array($this, '_revkeep'), 999999, 2 );
-			if (!is_wp_error($res)) {
-				$this->db->cache($this, $this->id = $this->postinfo['ID'] = $res);
-				if ( $this->deferred ) $this->_later( array($this, '_mark_imported') );
-				else $this->_mark_imported();
-				do_action('postmark_after_sync', $this, get_post($res));
-			}
-			return $res;
+			$ret = $postinfo->ref();
+			$postinfo->apply();
+			$postinfo->also(function() use($postinfo) {
+				$id = yield $postinfo->ref();
+				$postinfo->set_meta('_postmark_cache', $this->key());
+				$this->db->cache($this, $this->id = $id);
+				do_action('postmark_after_sync', $this, get_post($id));
+				unset($this->postinfo);  # should only exist during sync
+			});
+			return $ret;
 		}
 		return $this->postinfo['wp_error'];
-	}
-
-	protected function _later($fn) {
-		$this->deferred = true;
-		Imposer::task('Postmark cleanup')->steps( $fn );
-	}
-
-	function _mark_imported() {
-		update_post_meta($this->id, '_postmark_cache', $this->key());
-	}
-
-	function _revkeep($num, $post) {
-		return ( $num && $post->guid == $this->ID ) ? 0 : $num;
 	}
 
 	protected function _syncinfo_meta() { return (
@@ -216,44 +203,6 @@ class Document extends MarkdownFile {
 
 	function filenameError($code, $message) {
 		return new WP_Error($code, sprintf($message, $this->filename));
-	}
-
-	function linkTo($meta_key, $post_or_posts, $async=true) {
-
-		if ( Option::parseValueURL($this->ID) ) WP_CLI::error(
-			sprintf("Can't set meta key %s of %s: file is not a post", $meta_key, $this->filename)
-		);
-
-		$src_id = $this->current_id();
-		$src_id = is_wp_error($src_id) ? false : $src_id;
-
-		$many = is_array($post_or_posts);
-		$keys = $many ? $post_or_posts : array($post_or_posts);
-
-		$tgt_ids = array_map( array($this->db, 'lookupPost'), $keys );
-		$missing = array_filter( $tgt_ids, \dirtsimple\fn('! $_ || is_wp_error($_)') );
-
-		if ( $async && ( $missing || ! $src_id ) ) {
-			# call again synchronously and abort for now
-			$later = fn::bind(array($this,'linkTo'), $meta_key, $post_or_posts, false);
-			return $this->_later( $later );
-		}
-
-		if ( ! $src_id ) WP_CLI::error(
-			sprintf("Can't set meta key %s of %s: file has not been synced", $meta_key, $this->filename)
-		);
-
-		if ($missing) {
-			$missing = implode( ', ', array_intersect_key($keys, $missing) );
-			Imposer::blockOn(
-				'@wp-posts', sprintf(
-					'%s, meta key %s: no post/page found for id(s): %s',
-					$this->filename, $meta_key, $missing
-				)
-			);
-		}
-
-		update_post_meta( $src_id, $meta_key, $many ? $tgt_ids : $tgt_ids[0] );
 	}
 
 }
