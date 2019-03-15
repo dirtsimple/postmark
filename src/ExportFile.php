@@ -69,8 +69,15 @@ class ExportFile extends MarkdownFile {
 		unset( $meta['_postmark_cache'] );
 		$meta = new Bag($meta);
 		do_action('postmark_export_meta', $meta, $this, $post);
-		$this->{'Post-Meta'} = $meta->items();
 
+		foreach ($meta->items() as $key=>$val) {
+			if ( has_action("postmark_export_meta_$key") ) {
+				do_action("postmark_export_meta_$key", $val, $this, $post);
+				unset($meta[$key]);
+			}
+		}
+
+		if ( $meta->count() ) $this['Post-Meta'] = $meta->items();
 		do_action('postmark_export', $this, $post);
 	}
 

@@ -52,6 +52,7 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
     + [postmark_after_sync](#postmark_after_sync)
   * [Export Actions and Filters](#export-actions-and-filters)
     + [postmark_export_meta](#postmark_export_meta)
+    + [postmark_export_meta_$key](#postmark_export_meta_key)
     + [postmark_export](#postmark_export)
     + [postmark_export_slug](#postmark_export_slug)
   * [Other Filters](#other-filters)
@@ -439,7 +440,15 @@ The hooks below are listed in execution order:
 
 #### postmark_export_meta
 
-`do_action('postmark_export_meta', $postmeta, MarkdownFile $md, WP_Post $post)` lets you modify the contents of  `$postmeta` (which will then be assigned to `$md->{'Post-Meta'}`).  You can use this to unset meta values that would not be useful in the output, or set document fields from them.  (For example, postmark itself sets `$md->Template` from `$postmeta['_wp_page_template']` and then unsets it from `$postmeta`.)  Like `$doc->postinfo` described above, `$postmeta` is a Bag (ArrayObject subclass with [extra methods](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php)) that supports normal array operations like `$postmeta['foo']="bar"`.
+`do_action('postmark_export_meta', $postmeta, MarkdownFile $md, WP_Post $post)` lets you modify the contents of  `$postmeta` (which will ultimately populate the `Post-Meta:` field of the exported document, if anything is left in it).  You can use this to unset meta values that would not be useful in the output, or set document fields from them.  (For example, postmark itself sets `$md->Template` from `$postmeta['_wp_page_template']` and then unsets it from `$postmeta`.)
+
+The `$postmeta` object is a Bag (ArrayObject subclass with [extra methods](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php)) that supports normal array operations like `$postmeta['foo']="bar"`, as well as methods like `has()`, `get()`, and `select()`.
+
+#### postmark_export_meta_$key
+
+`do_action("postmark_export_meta_$key", $meta_val, MarkdownFile $md, WP_Post $post)` runs on each meta field that's still in the `$postmeta` after running the `postmark_export_meta` hook.  `$meta_val` is the value of the field.
+
+If any hooks are registered for this action, the corresponding `$key` will be removed from the `Post-Meta:` field of the exported document.  (This means that you can `add_action("postmark_export_meta_somekey", "__return_true");` as a trivial way to suppress a meta key from being exported (e.g. ones containing dynamic state that should not be saved in an export file.)
 
 #### postmark_export
 
