@@ -9,10 +9,6 @@ class Database {
 	protected $cache, $docs=array(), $allowCreate, $exclude_types, $post_types;
 
 	function __construct($cache=true, $allowCreate=true) {
-		add_filter('imposer_nonguid_post_types', array(self::class, 'legacy_filter'));
-		Imposer::resource('@wp-post')->addLookup(
-			array(self::class, 'lookup_by_option_guid'), 'guid'
-		);
 		$this->reindex($cache);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
