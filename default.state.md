@@ -5,6 +5,9 @@ This state file extends [imposer](https://github.com/dirtsimple/imposer#readme) 
 ```shell
 postmark-module()  { __postmark-set modules content "$1"; }
 postmark-content() { __postmark-set content modules "$1"; }
+
+# don't include the cache in option diffs
+exclude-options postmark_option_cache
 ```
 
 * Use `postmark-module` *directory* on directories that contain prepackaged content that postmark should not modify, e.g. `postmark-module "vendor/some/package/content"`.
