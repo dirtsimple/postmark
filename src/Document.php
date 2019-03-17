@@ -161,7 +161,17 @@ class Document extends MarkdownFile {
 			$ret = $postinfo->ref();
 			$postinfo->apply();
 			$postinfo->also(function() use($postinfo) {
+				global $wpdb;
 				$id = yield $postinfo->ref();
+
+				# Updating a post doesn't update its guid, so we might have to force it
+				if ( get_post_field('guid', $id) !== $this->ID ) {
+					$post = array('guid'=>$this->ID);
+					# Fix the GUID in the db and cache
+					$wpdb->update( $wpdb->posts, $post, array('ID'=>$id) );
+					dirtsimple\imposer\PostModel::on_save_post($id, (object) $post);
+				}
+
 				$postinfo->set_meta('_postmark_cache', $this->key());
 				$this->db->cache($this, $this->id = $id);
 				do_action('postmark_after_sync', $this, get_post($id));
