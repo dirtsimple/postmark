@@ -50,6 +50,9 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
     + [postmark_metadata](#postmark_metadata)
     + [postmark_content](#postmark_content)
     + [postmark_after_sync](#postmark_after_sync)
+  * [Option Sync Actions](#option-sync-actions)
+    + [postmark_before_sync_option](#postmark_before_sync_option)
+    + [postmark_after_sync_option](#postmark_after_sync_option)
   * [Export Actions and Filters](#export-actions-and-filters)
     + [postmark_export_meta](#postmark_export_meta)
     + [postmark_export_meta_$key](#postmark_export_meta_key)
@@ -243,7 +246,7 @@ Some Wordpress plugins have options containing HTML content, that you might pref
 ID: "urn:x-option-value:edd_settings/purchase_receipt"
 ```
 
-A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) hooks are invoked during the process, and the command output will list the `ID:` instead of a Wordpress numeric post ID.
+A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) and [option sync](#option-sync-actions) hooks are invoked during the process, and the command output will list the `ID:` instead of a Wordpress numeric post ID.
 
 Since options don't have meta fields, the sync timestamp for options is kept in a (non-autoload) option, `postmark_option_cache`, thereby avoiding unnecessary updates for unchanged documents.  (It is safe to delete this option, however, since the only effect will be to effectively `--force` the next resync of any documents whose `ID:` is an option value.)
 
@@ -408,7 +411,7 @@ Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` s
 * `$postinfo->set_meta($key, $val)` -- does an `update_post_meta`, setting `$key` to `$val`.  `$key` can be a string or an array: if it's an array, it's treated as a path to a subitem within the meta field, working much like a key path for the wp-cli `wp post meta patch insert` command, except that parent arrays are automatically created.
 * `$postinfo->delete_meta($key)` -- deletes the specified meta key, or if `$key` is an array, it's treated as a path to a sub-item to delete within the meta field, like a key path for the wp-cli `wp post meta patch delete` command.
 
-The following actions run during the sync process, in the following order:
+The following actions run during the sync process (for posts, not options), in the following order:
 
 #### postmark_before_sync
 
@@ -431,6 +434,29 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 #### postmark_after_sync
 
 `do_action('postmark_after_sync', Document $doc, WP_Post $rawPost)` allows post-sync actions to be run on the document and/or resulting post.  `$rawPost` is a `raw`-filtered Wordpress WP_Post object, reflecting the now-synced post.  This can be used to process front matter fields that require the post ID to be known (e.g. adding data to custom tables).
+
+### Option Sync Actions
+
+#### postmark_before_sync_option
+
+`do_action('postmark_before_sync_option', Document $doc, array $optpath)` runs before processing documents that sync to an [option value](#option-values).  There is no `$doc->postinfo`, since no post will be created or updated.  However, this filter can still access or modify any other properties of the document, for example to preprocess the body in some way before the option is updated.  For convenience, `$optpath` contains the path to the option being synced, e.g. `['edd_settings', 'purchase_receipt']`.
+
+#### postmark_after_sync_option
+
+`do_action('postmark_after_sync_option', Document $doc, array $optpath)` is just like `postmark_before_sync_option`, except that it runs after the option value has been updated from the HTML version of the document body. A typical use of this hook would be to update other options from the document’s front matter,  e.g.:
+
+~~~php
+use dirtsimple\Postmark\Option;
+
+add_action('postmark_after_sync_option', function($doc, $optpath){
+    if ( $optpath === ['edd_settings', 'purchase_receipt'] ) {
+        if ( $doc->has('Title') )  Option::patch(['edd_settings', 'purchase_subject'], $doc->Title);
+        if ( $doc->has('Header') ) Option::patch(['edd_settings', 'purchase_heading'], $doc->Header);
+    }
+}, 10, 2);
+~~~
+
+The above example code will run after syncing any document whose ID is `urn:x-option-value:edd_settings/purchase_receipt`, check the document for a Title and/or Header field, and then set related EDD options using them.
 
 ### Export Actions and Filters
 

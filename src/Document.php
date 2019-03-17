@@ -133,7 +133,9 @@ class Document extends MarkdownFile {
 	function sync() {
 		# Option value? Update directly and cache in options
 		if ( $keypath = Option::parseValueURL($this->ID) ) {
+			do_action('postmark_before_sync_option', $this, $keypath);
 			Option::patch($keypath, $this->html());
+			do_action('postmark_after_sync_option', $this, $keypath);
 			Option::patch(array('postmark_option_cache', $this->ID), $this->key(), 'no');
 			return $this->ID;
 		}
@@ -171,10 +173,9 @@ class Document extends MarkdownFile {
 					$wpdb->update( $wpdb->posts, $post, array('ID'=>$id) );
 					dirtsimple\imposer\PostModel::on_save_post($id, (object) $post);
 				}
-
+				do_action('postmark_after_sync', $this, get_post($id));
 				$postinfo->set_meta('_postmark_cache', $this->key());
 				$this->db->cache($this, $this->id = $id);
-				do_action('postmark_after_sync', $this, get_post($id));
 				unset($this->postinfo);  # should only exist during sync
 			});
 			return $ret;
