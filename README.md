@@ -373,6 +373,16 @@ Also note: a post's parent, menu order, and MIME type are currently *not* includ
 
 ## Actions and Filters
 
+All of Postmark's actions and filters can be registered from a plugin, theme, wp-cli package, or imposer state module.  Because Postmark is built on [imposer](https://github.com/dirtsimple/imposer), you can hook the `imposer_tasks` action to register other actions and filters -- meaning you can put your imposer or postmark-specific hooks in a separate PHP file and then `require_once` that file, e.g.:
+
+~~~php
+add_action('imposer_tasks', function() {
+    require_once(__DIR__ . '/includes/cli-hooks.php');
+});
+~~~
+
+Then, you can put any code to register postmark actions or filters in `includes/cli-hooks.php`, and that file will only be loaded when running `wp postmark` or `imposer`.
+
 ### Markdown Formatting
 
 Markdown formatting is controlled by the following filters:

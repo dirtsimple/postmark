@@ -9,6 +9,8 @@ class Database {
 	protected $cache, $docs=array(), $allowCreate, $exclude_types, $post_types;
 
 	function __construct($cache=true, $allowCreate=true) {
+		# ensure Imposer and all hooks/tasks are initialized first
+		Imposer::instance();
 		$this->reindex($cache);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
