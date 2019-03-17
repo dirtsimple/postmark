@@ -1,6 +1,8 @@
 <?php
 namespace dirtsimple\Postmark;
 
+use dirtsimple\imposer\Imposer;
+
 if ( class_exists( 'WP_CLI' ) ) {
 	\WP_CLI::add_command( 'postmark', PostmarkCommand::class );
 	\WP_CLI::add_hook( 'after_wp_load', function() {
