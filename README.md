@@ -401,6 +401,9 @@ Many filters and actions receive `dirtsimple\Postmark\Document` objects as a par
 * `$doc->exists()` returns truth if the document currently exists in Wordpress (as determined by looking up its `ID` as a Wordpress GUID)
 * `$doc->body` is the markdown text of the document, and is a writable property.
 * `$doc->html($propName='body')` converts the named property from Markdown to HTML (triggering the `postmark_markdown` and `postmark_html` filters).
+* `$doc->has("field")` returns true if the document has "field" as  one of its front matter fields
+* `$doc->get("field", $default=null)` returns the content of "field" from the frontmatter, or `$default` if it's not found
+* `$doc->select(['field'=>callback, ...])` calls each *callback* if the matching field exists, with the value of that field.  The return value is an array containing only keys for the fields that existed, with the values being the result of calling the callback.  If a callback isn't actually callable (e.g. `true`), the value is returned as-is in the output array.  If a callback is an associative array, it's processed recursively, so that e.g. `$doc->select(['EDD'=>['Price'=>$cb]])` will call `$cb` if and only if there is an `EDD` front matter field that's an associative array with a `Price` subfield.
 
 During the sync process, a document builds up a `$doc->postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$doc->postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
 
@@ -415,7 +418,7 @@ The following actions run during the sync process (for posts, not options), in t
 
 #### postmark_before_sync
 
-`do_action('postmark_before_sync', Document $doc)` allows modification of the document or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` array, to prevent Postmark from doing its default translations of those fields.  (The array is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo['wp_error']` to a WP_Error instance will force the sync to terminate with the given error.
+`do_action('postmark_before_sync', Document $doc)` allows modification of the document or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` object, to prevent Postmark from doing its default translations of those fields.  (The object is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo->wp_error` to a WP_Error instance will force the sync to terminate with the given error.
 
 #### postmark_metadata
 
