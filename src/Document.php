@@ -4,6 +4,7 @@ namespace dirtsimple\Postmark;
 use dirtsimple\fn;
 use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Imposer;
+use dirtsimple\imposer\PostModel;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
 use WP_CLI;
@@ -14,7 +15,7 @@ class Document extends MarkdownFile {
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
 	protected $id, $db, $loaded=false;
-	public $filename, $postinfo, $is_template;
+	public $filename, $postinfo=null, $is_template;
 
 	function __construct($db, $filename, $is_tmpl=false) {
 		$this->db = $db;
@@ -168,15 +169,15 @@ class Document extends MarkdownFile {
 
 				# Updating a post doesn't update its guid, so we might have to force it
 				if ( get_post_field('guid', $id) !== $this->ID ) {
-					$post = array('guid'=>$this->ID);
+					$post = array('guid'=>$this->ID, 'post_type'=>get_post_field('post_type', $id));
 					# Fix the GUID in the db and cache
 					$wpdb->update( $wpdb->posts, $post, array('ID'=>$id) );
-					dirtsimple\imposer\PostModel::on_save_post($id, (object) $post);
+					PostModel::on_save_post($id, (object) $post);
 				}
 				do_action('postmark_after_sync', $this, get_post($id));
 				$postinfo->set_meta('_postmark_cache', $this->key());
 				$this->db->cache($this, $this->id = $id);
-				unset($this->postinfo);  # should only exist during sync
+				$this->postinfo = null;  # should only exist during sync
 			});
 			return $ret;
 		}

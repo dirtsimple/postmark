@@ -75,6 +75,6 @@ class MarkdownFile extends Bag {
 		return ($key === 'meta') ? true : $this->offsetExists($key);
 	}
 	function __unset($key) {
-		if ($key === 'meta') $this->exchangeArray(array()); else parent::__unset($key);
+		if ($key === 'meta') $this->exchangeArray(array()); else unset($this[$key]);
 	}
 }
