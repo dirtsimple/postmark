@@ -91,14 +91,7 @@ class Document extends MarkdownFile {
 	function author_id() {
 		$email = apply_filters('postmark_author_email', $this->Author, $this);
 		if ( is_wp_error($email) ) return $email;
-		if ( $user = get_user_by('email', $email) ) return $user->ID;
-		return new WP_Error(
-			'bad_author',
-			sprintf(
-				__('Could not find user with email: %s (Author: %s)', 'postmark'),
-				$email, $this->Author
-			)
-		);
+		return Imposer::ref('@wp-user', $email);
 	}
 
 	function checkPostType($pi) {

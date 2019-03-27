@@ -132,7 +132,7 @@ Slug:  # if missing, will be obtained from file/directory name
 
 Category: something          # this can be a comma-delimited string, or a YAML list
 Tags:     bar, baz           # this can be a comma-delimited string, or a YAML list
-Author:   foo@example.com    # user id is looked up by email address
+Author:   foo@example.com    # user id is looked up by email address or user login
 
 Excerpt: |  # You can set a custom excerpt, which can contain markdown
   Some *amazing* blurb that makes you want to read this post!
@@ -501,9 +501,9 @@ If any hooks are registered for this action, the corresponding `$key` will be re
 
 #### postmark_author_email
 
-`apply_filters('postmark_author_email', string $author, Document $doc)` filters the `Author:` front-matter field (if it exists) to extract an email which will be used to get the user ID of the post's author.  This filter accepts a string and should return an email or WP_Error object.  If the string is already a valid email, the filter should return it unchanged.
+`apply_filters('postmark_author_email', string $author, Document $doc)` filters the `Author:` front-matter field (if it exists) to extract an email or login which will be used to find the database ID of the post's author.  This filter accepts a string and should return an email, login, or WP_Error object.  If the string is already a valid email or login, the filter should return it unchanged.
 
-This filter is only invoked if there is an `Author:` field in the front matter and `postmark_before_sync` didn't already set a `post_author`.
+This filter is only invoked if there is an `Author:` field in the front matter and `postmark_before_sync` didn't already set a `post_author`.  Internally, postmark treats the result of this as an Imposer `@wp-user` reference key, so technically, you can return anything that's recognized by Imposer as a `@wp-user` reference with no specific key type.
 
 #### postmark_excluded_types
 
