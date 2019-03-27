@@ -91,7 +91,7 @@ To add an `ID`, Postmark must be able to write to both the file and the director
 The other commands Postmark provides are:
 
 * `wp export [<post-spec>...] [--dir=<output-dir>] [--porcelain] [--allow-none]` -- export the specified post(s) to markdown files.  (See [Exporting Posts and Pages](#exporting-posts-and-pages), below, for more info.)
-* `wp postmark uuid` --  takes no options and just outputs a UUID suitable for use as the `ID:` of a new `.md` file.  (See [The ID: Field](#the-id-field) below, for more info.)
+* `wp postmark uuid [<file>...]` -- adds an `ID:` field to each *file* that doesn't already have one.  If no files are given,  it outputs a new UUID to standard output, suitable for use as the `ID:` of a new `.md` file.  (See [The ID: Field](#the-id-field) below, for more info.)
 
 ### File Format and Directory Layout
 
@@ -507,7 +507,7 @@ This filter is only invoked if there is an `Author:` field in the front matter a
 
 #### postmark_excluded_types
 
-`apply_filters('postmark_excluded_types', array $post_types)` filters an array of post types that will *not* be importable by postmark.  By default, the array contains `['revision', 'edd_payment', 'shop_order', 'shop_subscription']`, to exclude revisions and EDD/WooCommerce orders.  If you are using any plugins with custom post types that can grow to thousands of posts, but do not need to be imported, adding the post types to this list will help keep postmark's startup fast, by reducing the number of GUIDs that need to be loaded from the database.
+`apply_filters('postmark_excluded_types', array $post_types)` filters an array of post types that will *not* be importable by postmark.  By default, the array contains `['revision', 'edd_log', 'edd_payment', 'shop_order', 'shop_subscription']`, to exclude revisions and EDD/WooCommerce orders.  If you are using any plugins with custom post types that can grow to thousands of posts, but do not need to be imported, adding the post types to this list will help keep postmark's startup fast, by reducing the number of GUIDs that need to be loaded from the database.
 
 ## Project Status/Roadmap
 

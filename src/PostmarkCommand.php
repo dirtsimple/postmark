@@ -119,9 +119,29 @@ class PostmarkCommand {
 	}
 
 	/**
-	 * Generate a unique ID for use in a markdown file
+	 * Generate unique ID(s) for use in markdown file(s)
+	 *
+	 * [<file>...]
+	 * : Write an ID: to listed file(s) that lack one.  If no files given, write a UUID to the console
 	 */
-	function uuid( $args ) { WP_CLI::line('urn:uuid:' . wp_generate_uuid4()); }
+	function uuid( $args ) {
+		if ( ! $args) {
+			WP_CLI::line('urn:uuid:' . wp_generate_uuid4());
+			return;
+		}
+		foreach ( $args as $filename ) {
+			if ( ! file_exists($filename) ) WP_CLI::error("$filename does not exist");
+			$md = MarkdownFile::fromFile($filename);
+			if ( $guid = $md->get('ID') ) {
+				WP_CLI::success("$filename already has an ID: of $guid");
+				continue;
+			}
+			$md->ID = $guid = 'urn:uuid:' . wp_generate_uuid4();
+			if ( $md->saveAs($filename) )
+				WP_CLI::success("$filename ID: set to $guid");
+			else WP_CLI::error("Could not save new ID to $filename");
+		}
+	}
 
 
 	// -- non-command utility methods --
