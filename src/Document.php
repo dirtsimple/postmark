@@ -168,14 +168,23 @@ class Document extends MarkdownFile {
 					PostModel::on_save_post($id, (object) $post);
 				}
 				do_action('postmark_after_sync', $this, get_post($id));
+				$this->_save_opts( $this->get('Set-Options'), $id);
 				$postinfo->set_meta('_postmark_cache', $this->key());
 				$this->db->cache($this, $this->id = $id);
 				$this->postinfo = null;  # should only exist during sync
 			});
 			return $ret;
 		}
-		unset($this->postinfo);  # should only exist during sync
-		return $this->postinfo['wp_error'];
+		$this->postinfo = null;  # should only exist during sync
+		return $postinfo['wp_error'];
+	}
+
+	protected function _save_opts($opts, $id) {
+		$opts = (array) $opts;
+		foreach ($opts as $opt) {
+			$keypath = Option::parseIdURL("urn:x-option-id:$opt");
+			Option::patch($keypath, $id);
+		}
 	}
 
 	protected function _syncinfo_meta() { return (

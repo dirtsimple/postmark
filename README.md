@@ -11,7 +11,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
 * Files can contain YAML front matter to set all standard Wordpress page/post properties
 * Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync.
-* Plugins' special pages (like checkout or "my account") and themes' [custom CSS](#custom-css) can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option Values](#option-values)
+* Plugins' special pages (like checkout or "my account") and themes' [custom CSS](#custom-css) can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option HTML Values](#option-html-values)
 * [Prototypes and Templating](#prototypes-and-templating): In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
 * Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
@@ -33,10 +33,10 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
   * [File Format and Directory Layout](#file-format-and-directory-layout)
   * [The `ID:` Field](#the-id-field)
   * [Front Matter Fields](#front-matter-fields)
-  * [Option URLs](#option-urls)
+  * [Working With Options](#working-with-options)
     + [Option References](#option-references)
     + [Custom CSS](#custom-css)
-    + [Option Values](#option-values)
+    + [Option HTML Values](#option-html-values)
 - [Prototypes and Templating](#prototypes-and-templating)
   * [Template Processing](#template-processing)
   * [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
@@ -162,24 +162,37 @@ Post-Meta:  # array of meta keys -> meta values; only the given values are chang
   _some_hidden_field: 42
   delete_me: null  # setting to null deletes the meta key
 
+Set-Options:  # an option path or array of option paths; each will be set to the post's db ID
+  - edd_settings/purchase_history_page  # e.g., make this page the "my account" page for both EDD
+  - lifterlms_myaccount_page_id         # and LifterLMS.  See "Working With Options" for more info
 ```
 
 Please note that Postmark only validates or converts a few of these fields.  Most are simply passed to Wordpress as-is, which may create problems if you use an invalid value.  (For example, if you assign a custom post type that isn't actually installed, or a status that the post type doesn't support.)  In most cases, however, you can fix such problems simply by changing the value to something valid and re-syncing the file.
 
 Wordpress plugins or wp-cli packages can add extra fields (or change the handling of existing fields) by registering actions and filters.
 
-### Option URLs
+### Working With Options
 
-Option URLs are URLs that begin with either `urn:x-option-id:` (for an option reference) or `urn:x-option-value:` (for an option value), followed by a `/`-separated path that begins with a Wordpress option name.  By setting the `ID:` of your document to an option URL, you can cause the document's `post_id` or HTML content to be synced to the relevant subkey of that option.
+Many Wordpress plugins have special pages (like carts, checkouts, "my account", etc.) that are referenced in their settings as a post ID.  Wordpress itself has an option to set the home page (i.e., `page_on_front`).  And sometimes there are options that require HTML, but which you'd like to be able to express as markdown, perhaps in a revision-controlled file.
 
-The path portion of an option URL is essentially the same as the arguments given to `wp option pluck`, except that each argument is urlencoded and then joined with a `/`.  Each part of the path is either an array key or property name within the option value.  Any non-alphanumeric characters in any part of the path (other than `-` or `_`)  should be `%`-encoded, as failure to do so may produce errors or other undesirable results.
+Postmark provides three ways to integrate with Wordpress options like these:
+
+* You can set one or more wordpress options (or portions thereof) to the database ID of the document on sync, by putting option paths in the `Set-Options:` front matter field of the document.  (For example, `Set-Options: page_on_front` would make the document the Wordpress home page.)
+* You can update a possibly already existing, plugin-supplied post or page in place by using a `urn:x-option-id:` URL as the `ID:` of the document.  (The option is set whenever the document is synced, and if there's no existing post/page, it's created.)
+* You can set an option (or portion thereof) to the HTML generated by a document, by using a `urn:x-option-value:` URL as the document's `ID: `.
+
+(In addition, the first two integration methods can actually be *combined*: you can update a plugin-supplied default page in-place using a `urn:x-option-id:` URL as the document `ID:`, *and* then point other options to the same page using the document's `Set-Options:` field.)
+
+Regardless of which approach you take in a given document, to work with options you will be using *option paths*.  An option path is a  `/`-separated path that begins with a Wordpress option name.  Any path segments after the first are treated as array keys to traverse sub-items within the option, and all path segments must be urlencoded if they contain anything other than alphanumerics, `-` and `_`.  (e.g. the path `foo/bar%2fbaz` refers to the `bar/baz` key of the `foo` option.)
+
+For the `Set-Options:` field, you will only need to place an option path (or array of them) to update the relevant options or portions thereof.  For the `ID:` field, you will need to prefix the path with `urn:x-option-id:` or `urn:x-option-value:`, to distinguish the case where the post ID is stored in the option, from the case where the HTML will be stored in the option.
 
 #### Option References
 
-Many Wordpress plugins have special pages (like carts, checkouts, "my account", etc.) that are referenced in their settings as a post ID.  You can sync a markdown file to these pages using an `urn:x-option-id:` URL in the document's `ID:`, e.g.:
+When a plugin creates a default page whose post ID is stored in an option, you can update that page in place by setting your markdown document's `ID:` to a  `urn:x-option-id:` URL, e.g.:
 
 ```yaml
-ID: "urn:x-option-id:edd_settings/purchase_page"
+ID: "urn:x-option-id:edd_settings/purchase_page"  # use this page as the EDD checkout page
 ```
 
 A post with a `urn:x-option-id:` URL as its `ID` will be synced slightly differently than normal.  As usual, if a post with the given GUID exists, the markdown file is synced into that post.  Afterward, the specified option will be edited to reflect the Wordpress post_id of that that post.  (In the above example, the `purchase_page` key under the `edd_settings` option will be created or changed).
@@ -238,7 +251,7 @@ Status:   publish
 
 The `css` code fence wrapping is optional: it is automatically removed if found on posts of type `custom_css`.  (This is done so that you can take advantage of any CSS-specific editing or highlighting features of your markdown editor.)  You can fence with either backquotes or tildes (`~`), as long as there are at least three, the opening and closing fences are the same length and not indented, and the first word on the opening fence line is `css` in lower case.
 
-#### Option Values
+#### Option HTML Values
 
 Some Wordpress plugins have options containing HTML content, that you might prefer to write using Markdown and/or maintain under revision control.  You can sync files to these settings using a `urn:x-option-value:` URL in each document's `ID:`, e.g.:
 
@@ -452,7 +465,7 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 
 #### postmark_before_sync_option
 
-`do_action('postmark_before_sync_option', Document $doc, array $optpath)` runs before processing documents that sync to an [option value](#option-values).  There is no `$doc->postinfo`, since no post will be created or updated.  However, this filter can still access or modify any other properties of the document, for example to preprocess the body in some way before the option is updated.  For convenience, `$optpath` contains the path to the option being synced, e.g. `['edd_settings', 'purchase_receipt']`.
+`do_action('postmark_before_sync_option', Document $doc, array $optpath)` runs before processing documents that sync to an [option HTML value](#option-html-values).  There is no `$doc->postinfo`, since no post will be created or updated.  However, this filter can still access or modify any other properties of the document, for example to preprocess the body in some way before the option is updated.  For convenience, `$optpath` contains the path to the option being synced, e.g. `['edd_settings', 'purchase_receipt']`.
 
 #### postmark_after_sync_option
 
