@@ -185,14 +185,20 @@ class PostmarkCommand {
 			WP_CLI::warning("no .md files found in $dir");
 		}
 		$porcelain = WP_CLI\Utils\get_flag_value($flags, 'porcelain', false);
+		$explicit = $dir === null;  # explicit: true if user supplied file names
+
 		foreach ($docs as $doc) {
 			WP_CLI::debug("Syncing $doc->filename", "postmark");
-			if     ( ! $doc->file_exists() )
-				WP_CLI::error("$doc->filename is empty or does not exist");
-			elseif ( $res = $doc->synced() )
-				$this->result($doc, $res,         $porcelain, true);
-			else
-				$this->result($doc, (yield( $doc->sync() )), $porcelain, false);
+			if ( ! $doc->file_exists() ) {
+				WP_CLI::error("$doc->filename is empty or does not exist", $explicit);
+			} elseif ( $res = $doc->synced() )
+				$this->result($doc, $res,      $porcelain, true);
+			else {
+				$res = (yield( $doc->sync() ));
+				if ( ! $explicit && is_wp_error($res) && $res->get_error_code() == 'missing_guid' )
+					WP_CLI::error($res->get_error_message(), false);
+				else $this->result($doc, $res, $porcelain, false);
+			}
 		}
 	}
 
