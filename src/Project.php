@@ -13,9 +13,16 @@ class Project {
 		$this->base = $base;
 		$this->loader = new Loader\ArrayLoader();
 		$chain = new Loader\ChainLoader( array($this->loader) );
-		if ( is_dir("$this->base/.postmark") ) $chain->addLoader(
-			new Loader\FilesystemLoader(".postmark", $this->base)
-		);
+		foreach( array('_', '.') as $pre ) {
+			$dir = "$this->base/{$pre}postmark";
+			if ( is_dir($dir) ) {
+				$chain->addLoader(
+					new Loader\FilesystemLoader("{$pre}postmark", $this->base)
+				);
+				break;
+			}
+		}
+		$this->prototypes = $dir;
 		$this->env = new Environment($chain, array('autoescape'=>false));
 	}
 
@@ -24,7 +31,7 @@ class Project {
 			$root = static::root($doc->filename);
 			$typename = $doc->Prototype;
 			$found = false;
-			$typefile = "$root->base/.postmark/$typename.type";
+			$typefile = "$root->prototypes/$typename.type";
 
 			if ( file_exists("$typefile.yml") ) {
 				$found = true;
@@ -88,6 +95,7 @@ class Project {
 		$dir = dirname($pat);
 		$dir = $dir == '.' ? '' : \trailingslashit($dir);
 		foreach ( glob("$dir*", GLOB_ONLYDIR|GLOB_NOSORT) as $dir ) {
+			if ( basename($dir) === '_postmark' ) continue;
 			$files = array_merge( $files, static::find($dir . '/'. basename($pat), $f) );
 		}
 		return $files;
@@ -113,6 +121,7 @@ class Project {
 
 	protected static function is_project($dir) {
 		return (
+			file_exists("$dir/_postmark") ||
 			file_exists("$dir/.postmark") ||
 			file_exists("$dir/.git") ||
 			file_exists("$dir/.hg") ||

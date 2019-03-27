@@ -97,7 +97,7 @@ The other commands Postmark provides are:
 
 Postmark expects to see non-empty markdown files with an `.md` extension and YAML front matter.  If a file is named `index.md`, it will become the Wordpress page/post parent of any other files in that directory or any subdirectory that don't contain its own `index.md`.  If not overridden in the YAML fields, the default slug of a post or page is its filename, minus the `.md` extension.  If the filename is `index.md`, the name of the containing directory is used instead.
 
-When syncing any individual `.md` file, Postmark searches upward until a matching `index.md` file is found, or a "project root" directory is found.  (A project root is any directory containing a `.git`, `.hg`, `.svn`, or `.postmark` subdirectory.)  The first such `index.md` found becomes the parent page or post of the current `.md` file.  (And it is synced if it doesn't exist in the Wordpress database yet, searching recursively upward for more parents until every parent `index.md` exists and is made the parent of the corresponding child post or page.)
+When syncing any individual `.md` file, Postmark searches upward until a matching `index.md` file is found, or a "project root" directory is found.  (A project root is any directory containing a `.git`, `.hg`, `.svn`, `_postmark`, or `.postmark` subdirectory.)  The first such `index.md` found becomes the parent page or post of the current `.md` file.  (And it is synced if it doesn't exist in the Wordpress database yet, searching recursively upward for more parents until every parent `index.md` exists and is made the parent of the corresponding child post or page.)
 
 Postmark input files do not need to be placed under your Wordpress directory or even accessible by your webserver.  For security, they should not be *writable* by your webserver, and do not even need to be *readable* except by the user running `wp postmark` commands.  You also do not have to place all your markdown files in a single tree: the `postmark sync` and `postmark tree` commands accept multiple file and directory names, respectively.
 
@@ -268,7 +268,7 @@ Videos:
 Dude, check these out!
 ```
 
-Then, in the same directory or a parent, create a `.postmark/` directory containing a `video.type.yml` file with the common properties:
+Then, in the same directory or a parent, create a `_postmark/` or `.postmark/` directory containing a `video.type.yml` file with the common properties:
 
 ```yaml
 WP-Type: post
@@ -298,7 +298,7 @@ If a `.type.md` file exists alongside a `.type.yml` and/or `.type.twig`, then th
 
 Twig templates (in `.type.twig` or `.type.md`) are used to generate *markdown* (not HTML), possibly containing Wordpress shortcodes as well.  Templates are processed statically at *sync time*, not during Wordpress page generation, and only have access to data from the document being synced.  The "variables" supplied to the template are the front-matter properties, plus `body` for the body text.
 
-Templates can use full Twig syntax, including macros, the `extends` tag and `include()` function, which means that you can put other template files in your `.postmark` directory and then use them as partials or base templates, similar to other static site generators.  For example, above we could have done something like this:
+Templates can use full Twig syntax, including macros, the `extends` tag and `include()` function, which means that you can put other template files in your `_postmark` or `.postmark` directory and then use them as partials or base templates, similar to other static site generators.  For example, above we could have done something like this:
 
 ```twig
 {% from "macros.twig" import video_block %}
@@ -309,7 +309,7 @@ Templates can use full Twig syntax, including macros, the `extends` tag and `inc
 {% endfor %}
 ```
 
-with a `macros.twig` in our `.postmark` directory containing:
+with a `macros.twig` in our `_postmark` or `.postmark` directory containing:
 
 ```twig
 {% macro video_block(video) %}
