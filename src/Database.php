@@ -6,7 +6,7 @@ use dirtsimple\imposer\PostModel;
 
 class Database {
 
-	protected $cache, $docs=array(), $allowCreate, $exclude_types, $post_types;
+	protected $cache, $allowCreate;
 
 	function __construct($cache=true, $allowCreate=true) {
 		# ensure Imposer and all hooks/tasks are initialized first
@@ -24,7 +24,7 @@ class Database {
 		return Option::postFor($guid) ?: null;
 	}
 
-	function reindex($cache) {
+	protected function reindex($cache) {
 		global $wpdb;
 		$filter = PostModel::posttype_exclusion_filter();
 		if ( $cache ) $this->cache = array_flip(
@@ -39,19 +39,8 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
-	function doc($file, $is_tmpl=false) {
-		$file = Project::realpath($file);
-		return isset($this->docs[$file]) ? $this->docs[$file] : $this->docs[$file] = new Document($this, $file, $is_tmpl);
-	}
-
-	function docs($pat) { return array_map(array($this, 'doc'), Project::find($pat)); }
-
 	function cachedID($doc) {
 		if ( isset($this->cache[$key = $doc->key()]) ) return $this->cache[$key];
-	}
-
-	function postForGUID($guid) {
-		return is_wp_error($guid) ? $guid : Imposer::resource('@wp-post')->lookup($guid, 'guid');
 	}
 
 	function cache($doc, $res) {
@@ -61,31 +50,39 @@ class Database {
 		}
 	}
 
-	function postForDoc($doc) {
-		return $this->postForGUID(
+	function parent_id($doc) {
+		if ( ! $doc = Project::parent_doc($doc->filename) ) return null;  # root, no parent
+		if ( ! $doc->file_exists() ) return $this->parent_id($doc);       # try grandparent
+		if ( $id = $this->cachedID($doc) ) return $id;  # cached ID, we're done
+
+		$guid = $this->guidForDoc($doc);
+		if ( is_wp_error($guid) ) return $guid;
+
+		$id = Imposer::resource('@wp-post')->lookup($guid, 'guid');
+		return $id ?: $doc->sync($this);
+	}
+
+	function guidForDoc($doc) {
+		return (
 			$doc->ID           ? $doc->ID : (
 			$this->allowCreate ? $this->newID($doc) : (
 			$doc->filenameError('missing_guid', __( 'Missing or Empty `ID:` field in %s', 'postmark'))))
 		);
 	}
 
-	function newID($doc) {
+	protected function newID($doc) {
 		$md = MarkdownFile::fromFile($file = $doc->filename);
 		$md->ID = $guid = 'urn:uuid:' . wp_generate_uuid4();
 		return $md->saveAs($file) ? ($doc->ID = $guid) : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
-	function postTypeOk($post_type) {
-		return isset($this->post_types[$post_type]) && !isset($this->exclude_types[$post_type]);
-	}
-
-	function export($post_spec, $dir='') {
+	static function export($post_spec, $dir='') {
 		$guid = null;
 		if ( ! is_numeric($id = $post_spec) ) {
-			if ( $id = $this->postForGUID($post_spec) ) {
+			if ( $id = Imposer::resource('@wp-post')->lookup($post_spec, 'guid') ) {
 				$guid = $post_spec;
 			} else {
-				$id = url_to_postid($post_spec);
+				$id = Imposer::resource('@wp-post')->lookup($post_spec);
 				if ( ! $id ) return false;
 			}
 		}

@@ -421,7 +421,6 @@ Note that `postmark_markdown` and `postmark_html` may be invoked several times o
 Many filters and actions receive `dirtsimple\Postmark\Document` objects as a parameter.  These objects offer the following API:
 
 * Front-matter fields are accessible as public, writable object properties.  (e.g. `$doc->Foo` returns front-matter field `Foo`) .  Fields that aren't valid PHP property names can be accessed using e.g. `$doc->{'Some-Field'}`.  Missing or empty fields return null; if you want a different default when the field is missing, you can use `$doc->get('Somename', 'default-value')`.
-* `$doc->exists()` returns truth if the document currently exists in Wordpress (as determined by looking up its `ID` as a Wordpress GUID)
 * `$doc->body` is the markdown text of the document, and is a writable property.
 * `$doc->html($propName='body')` converts the named property from Markdown to HTML (triggering the `postmark_markdown` and `postmark_html` filters).
 * `$doc->has("field")` returns true if the document has "field" as  one of its front matter fields
@@ -432,8 +431,9 @@ During the sync process, a document builds up a `$doc->postinfo` array to be pas
 
 For example, Postmark calculates the `post_content` after calling the `postmark_metadata` action, but before the `postmark_content` action.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` action.
 
-Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  You can see the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on most of the other available methods, but there are two special additional methods you might find helpful:
+Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  You can see the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on most of the other available methods, but there are some additional methods you might find helpful:
 
+* `$postinfo->id()` returns the post ID if an existing post is being updated, or null if the post is new.
 * `$postinfo->set_meta($key, $val)` -- does an `update_post_meta`, setting `$key` to `$val`.  `$key` can be a string or an array: if it's an array, it's treated as a path to a subitem within the meta field, working much like a key path for the wp-cli `wp post meta patch insert` command, except that parent arrays are automatically created.
 * `$postinfo->delete_meta($key)` -- deletes the specified meta key, or if `$key` is an array, it's treated as a path to a sub-item to delete within the meta field, like a key path for the wp-cli `wp post meta patch delete` command.
 

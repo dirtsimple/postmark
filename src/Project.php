@@ -6,6 +6,15 @@ use Mustangostang\Spyc;
 
 class Project {
 
+	protected static $docs=array();
+
+	static function doc($filename, $is_tmpl=false) {
+		$filename = Project::realpath($filename);
+		return isset(static::$docs[$filename]) ?
+			static::$docs[$filename] :
+			static::$docs[$filename] = new Document($filename, $is_tmpl);
+	}
+
 	protected $root;
 
 	function __construct($root, $base) {
@@ -26,7 +35,7 @@ class Project {
 		$this->env = new Environment($chain, array('autoescape'=>false));
 	}
 
-	static function load($doc, $db) {
+	static function load($doc) {
 		if ( !empty($doc->Prototype) ) {
 			$root = static::root($doc->filename);
 			$typename = $doc->Prototype;
@@ -39,7 +48,7 @@ class Project {
 			}
 			if ( file_exists("$typefile.md") ) {
 				$found = true;
-				$type = $db->doc("$typefile.md", true)->load();
+				$type = static::doc("$typefile.md", true)->load();
 				$doc->inherit( $type->meta() );
 				if ( ! $doc->is_template && !empty(trim($tpl = $type->unfence('twig'))) ) {
 					$doc->body = $root->render($doc, "$typename.type.md", $tpl);
@@ -101,13 +110,13 @@ class Project {
 		return $files;
 	}
 
-	static function parent_doc($db, $filename) {
+	static function parent_doc($filename) {
 		$dir = dirname($filename);
 		if ( static::basename($filename) == 'index.md' ) {
 			if ( static::is_project($dir) ) return null;
 			$dir = dirname($dir);
 		}
-		return $db->doc($dir == '.' ? 'index.md' : "$dir/index.md");
+		return static::doc($dir == '.' ? 'index.md' : "$dir/index.md");
 	}
 
 	static function realpath($path) {

@@ -33,12 +33,11 @@ class PostmarkCommand {
 		$allow_none = WP_CLI\Utils\get_flag_value($options, 'allow-none', $porcelain);
 
 		$dir = isset($options['dir']) ? WP_CLI\Utils\trailingslashit($options['dir']) : '';
-		$db = new Database(false, false);
 
 		if ( ! $args && ! $allow_none ) WP_CLI::error("No posts specified");
 
 		foreach ( $args as $post_spec ) {
-			$res = $db->export($post_spec, $dir);
+			$res = Database::export($post_spec, $dir);
 			switch (true) {
 				case is_wp_error( $res ):
 					WP_CLI::error($res);
@@ -77,8 +76,7 @@ class PostmarkCommand {
 			->produces('@wp-posts')
 			->steps( function() use ($args, $flags) {
 				try {
-					$db = $this->db($flags);
-					yield $this->sync_docs( array_map( array($db, 'doc'), $args ), $flags );
+					yield $this->sync_docs( $args, $flags );
 				} catch (Error $e) {
 					WP_CLI::error($e->getMessage());
 				}
@@ -108,9 +106,15 @@ class PostmarkCommand {
 			->produces('@wp-posts')
 			->steps( function() use ($args, $flags) {
 				try {
-					$db = $this->db($flags);
-					foreach ( $args as $arg )
-						yield $this->sync_docs( $db->docs(trailingslashit($arg) . "*.md"), $flags, $arg );
+					$docs = array();
+					foreach ( $args as $arg ) {
+						$files = Project::find(trailingslashit($arg) . "*.md");
+						if ( empty($files) ) {
+							WP_CLI::warning("no .md files found in ", Project::realpath($arg));
+						}
+						$docs = array_merge($docs, $files);
+					}
+					yield $this->sync_docs($docs, $flags, false);
 				} catch (Error $e) {
 					WP_CLI::error($e->getMessage());
 				}
@@ -158,13 +162,6 @@ class PostmarkCommand {
 		);
 	}
 
-	protected function db($flags) {
-		return new Database(
-			! WP_CLI\Utils\get_flag_value($flags, 'force', false),
-			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
-		);
-	}
-
 	protected function result($doc, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
 			WP_CLI::error($res);
@@ -179,22 +176,23 @@ class PostmarkCommand {
 			WP_CLI::success("$doc->filename successfully synced", "postmark");
 	}
 
-	protected function sync_docs($docs, $flags, $dir=null) {
-		if ( empty($docs) && isset($dir) ) {
-			$dir = Project::realpath($dir);
-			WP_CLI::warning("no .md files found in $dir");
-		}
+	protected function sync_docs($docs, $flags, $explicit=true) {
 		$porcelain = WP_CLI\Utils\get_flag_value($flags, 'porcelain', false);
-		$explicit = $dir === null;  # explicit: true if user supplied file names
 
-		foreach ($docs as $doc) {
+		$db = new Database(
+			! WP_CLI\Utils\get_flag_value($flags, 'force', false),
+			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
+		);
+
+		foreach ($docs as $filename) {
+			$doc = Project::doc($filename);
 			WP_CLI::debug("Syncing $doc->filename", "postmark");
 			if ( ! $doc->file_exists() ) {
 				WP_CLI::error("$doc->filename is empty or does not exist", $explicit);
-			} elseif ( $res = $doc->synced() )
+			} elseif ( $res = $db->cachedID($doc) )
 				$this->result($doc, $res,      $porcelain, true);
 			else {
-				$res = (yield( $doc->sync() ));
+				$res = (yield( $doc->sync($db) ));
 				if ( ! $explicit && is_wp_error($res) && $res->get_error_code() == 'missing_guid' )
 					WP_CLI::error($res->get_error_message(), false);
 				else $this->result($doc, $res, $porcelain, false);

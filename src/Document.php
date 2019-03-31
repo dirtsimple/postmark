@@ -14,11 +14,10 @@ class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
-	protected $id, $db, $loaded=false;
+	protected $loaded=false;
 	public $filename, $postinfo=null, $is_template;
 
-	function __construct($db, $filename, $is_tmpl=false) {
-		$this->db = $db;
+	function __construct($filename, $is_tmpl=false) {
 		$this->filename = $filename;
 		$this->is_template = $is_tmpl;
 	}
@@ -27,7 +26,7 @@ class Document extends MarkdownFile {
 		if (! $this->loaded) {
 			$this->loadFile( $this->filename );
 			$this->loaded = true;
-			Project::load($this, $this->db);
+			Project::load($this);
 		}
 		return $this;
 	}
@@ -38,30 +37,9 @@ class Document extends MarkdownFile {
 	function __unset($key) {     $this->load(); parent::__unset($key); }
 
 	function key()    { return Project::cache_key($this->filename); }
-	function synced() { return $this->db->cachedID($this); }
-	function exists() { return ($id = $this->current_id()) && ! is_wp_error($id); }
-
-	function current_id() {
-		$id = $this->id ?: $this->synced() ?: $this->db->postForDoc($this);
-		return is_wp_error($id) ? $id : $this->id = $id;
-	}
-
-	function post_id() {
-		return $this->exists() ? $this->id : $this->sync();
-	}
 
 	function file_exists() {
 		return file_exists($this->filename) && filesize($this->filename);
-	}
-
-	function parent() {
-		return Project::parent_doc($this->db, $this->filename);
-	}
-
-	function parent_id() {
-		if ( ! $parent = $this->parent() ) return null;
-		if ( ! $parent->file_exists() ) return $parent->parent_id();
-		return $parent->post_id();
 	}
 
 	function slug() {
@@ -96,9 +74,13 @@ class Document extends MarkdownFile {
 
 	function checkPostType($pi) {
 		return (
-			!isset($pi['post_type']) || $this->db->postTypeOk($pi['post_type']) ||
+			!isset($pi['post_type']) || $this->postTypeOk($pi['post_type']) ||
 			$this->syncField( 'wp_error', new WP_Error('excluded_type', sprintf(__("Excluded or unregistered post_type '%s' in %s",'postmark'), $pi['post_type'], $this->filename)))
 		);
+	}
+
+	function postTypeOk($post_type) {
+		return post_type_exists($post_type) && !isset( PostModel::nonguid_post_types()[$post_type] );
 	}
 
 	function post_date() {     return $this->_parseDate('post_date_gmt',     $this->Date); }
@@ -124,7 +106,7 @@ class Document extends MarkdownFile {
 		return $field != 'wp_error';
 	}
 
-	function sync() {
+	function sync($db) {
 		# Option value? Update directly and cache in options
 		if ( $keypath = Option::parseValueURL($this->ID) ) {
 			do_action('postmark_before_sync_option', $this, $keypath);
@@ -135,9 +117,10 @@ class Document extends MarkdownFile {
 		}
 
 		# Avoid nested action calls by ensuring parent is synced first:
-		if ( is_wp_error( $pid = $this->parent_id() ) ) return $pid;
-		if ( is_wp_error( $res = $this->current_id() ) ) return $res;
-		$postinfo = Imposer::define('@wp-post', $this->ID, 'guid')->set(array(
+		if ( is_wp_error( $pid = $db->parent_id($this) ) ) return $pid;
+		if ( is_wp_error( $guid = $db->guidForDoc($this) ) ) return $guid;
+
+		$postinfo = Imposer::define('@wp-post', $this->ID = $guid, 'guid')->set(array(
 			'post_parent' => $pid,
 		));
 
@@ -156,7 +139,7 @@ class Document extends MarkdownFile {
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
 			$ret = $postinfo->ref();
 			$postinfo->apply();
-			$postinfo->also(function() use($postinfo) {
+			$postinfo->also(function() use($postinfo, $db) {
 				global $wpdb;
 				$id = yield $postinfo->ref();
 
@@ -170,7 +153,7 @@ class Document extends MarkdownFile {
 				do_action('postmark_after_sync', $this, get_post($id));
 				$this->_save_opts( $this->get('Set-Options'), $id);
 				$postinfo->set_meta('_postmark_cache', $this->key());
-				$this->db->cache($this, $this->id = $id);
+				$db->cache($this, $id);
 				$this->postinfo = null;  # should only exist during sync
 			});
 			return $ret;
@@ -203,7 +186,6 @@ class Document extends MarkdownFile {
 		$this->syncField( 'post_mime_type',  $this->{'MIME-Type'} ) &&
 		$this->syncField( 'post_category',  (array) $this->Category ?: null ) &&
 		$this->syncField( 'tags_input',     (array) $this->Tags     ?: null ) &&
-		$this->syncField( 'ID',              array($this, 'current_id'), true ) &&
 		$this->syncField( 'post_name',       array($this, 'slug'),       true ) &&
 		$this->syncField( 'post_author',     array($this, 'author_id'),     $this->Author  ) &&
 		$this->syncField( 'post_date',       array($this, 'post_date'),     $this->Date    ) &&
