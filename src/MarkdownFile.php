@@ -77,4 +77,8 @@ class MarkdownFile extends Bag {
 	function __unset($key) {
 		if ($key === 'meta') $this->exchangeArray(array()); else unset($this[$key]);
 	}
+
+	function html($propName='body') {
+		return Formatter::format($this, $propName, $this->{$propName});
+	}
 }

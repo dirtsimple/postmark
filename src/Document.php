@@ -54,10 +54,6 @@ class Document extends MarkdownFile {
 		}
 	}
 
-	function html($propName='body') {
-		return Formatter::format($this, $propName, $this->{$propName});
-	}
-
 	function formatExcerpt() {
 		return $this->html('Excerpt');
 	}
