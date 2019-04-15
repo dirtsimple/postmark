@@ -106,15 +106,15 @@ class PostmarkCommand {
 			->produces('@wp-posts')
 			->steps( function() use ($args, $flags) {
 				try {
-					$docs = array();
+					$all = array();
 					foreach ( $args as $arg ) {
 						$files = Project::find(trailingslashit($arg) . "*.md");
 						if ( empty($files) ) {
 							WP_CLI::warning("no .md files found in ", Project::realpath($arg));
 						}
-						$docs = array_merge($docs, $files);
+						$all = array_merge($all, $files);
 					}
-					yield $this->sync_docs($docs, $flags, false);
+					yield $this->sync_docs($all, $flags, false);
 				} catch (Error $e) {
 					WP_CLI::error($e->getMessage());
 				}
@@ -162,21 +162,21 @@ class PostmarkCommand {
 		);
 	}
 
-	protected function result($doc, $res, $porcelain, $already=true) {
+	protected function result($filename, $res, $porcelain, $already=true) {
 		if ( is_wp_error( $res ) )
 			WP_CLI::error($res);
 		elseif ( $porcelain ) {
 			if ( $res !== null ) WP_CLI::line($res);
 		}
 		elseif ( $already )
-			WP_CLI::debug("$doc->filename already synced", "postmark");
+			WP_CLI::debug("$filename already synced", "postmark");
 		elseif ( $res !== null )
-			WP_CLI::success("$doc->filename successfully synced, ID=$res", "postmark");
+			WP_CLI::success("$filename successfully synced, ID=$res", "postmark");
 		else
-			WP_CLI::success("$doc->filename successfully synced", "postmark");
+			WP_CLI::success("$filename successfully synced", "postmark");
 	}
 
-	protected function sync_docs($docs, $flags, $explicit=true) {
+	protected function sync_docs($files, $flags, $explicit=true) {
 		$porcelain = WP_CLI\Utils\get_flag_value($flags, 'porcelain', false);
 
 		$db = new Database(
@@ -184,18 +184,15 @@ class PostmarkCommand {
 			! WP_CLI\Utils\get_flag_value($flags, 'skip-create', false)
 		);
 
-		foreach ($docs as $filename) {
-			$doc = Project::doc($filename);
-			WP_CLI::debug("Syncing $doc->filename", "postmark");
-			if ( ! $doc->file_exists() ) {
-				WP_CLI::error("$doc->filename is empty or does not exist", $explicit);
-			} elseif ( $res = $db->cachedID($doc) )
-				$this->result($doc, $res,      $porcelain, true);
-			else {
-				$res = (yield( $doc->sync($db) ));
+		foreach ($files as $filename) {
+			WP_CLI::debug("Syncing $filename", "postmark");
+			if ( ! file_exists($filename) || ! filesize($filename) ) {
+				WP_CLI::error("$filename is empty or does not exist", $explicit);
+			} else {
+				list( $synced, $res ) = yield( $db->sync($filename) );
 				if ( ! $explicit && is_wp_error($res) && $res->get_error_code() == 'missing_guid' )
 					WP_CLI::error($res->get_error_message(), false);
-				else $this->result($doc, $res, $porcelain, false);
+				else $this->result($filename, $res, $porcelain, ! $synced);
 			}
 		}
 	}

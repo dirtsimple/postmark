@@ -111,12 +111,15 @@ class Project {
 	}
 
 	static function parent_doc($filename) {
-		$dir = dirname($filename);
-		if ( static::basename($filename) == 'index.md' ) {
-			if ( static::is_project($dir) ) return null;
-			$dir = dirname($dir);
-		}
-		return static::doc($dir == '.' ? 'index.md' : "$dir/index.md");
+		do {
+			$dir = dirname($filename);
+			if ( static::basename($filename) == 'index.md' ) {
+				if ( static::is_project($dir) ) return null;
+				$dir = dirname($dir);
+			}
+			$filename = $dir == '.' ? 'index.md' : "$dir/index.md";
+		} while ( ! file_exists($filename) || ! filesize($filename) );
+		return static::doc($filename);
 	}
 
 	static function realpath($path) {

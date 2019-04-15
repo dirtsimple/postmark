@@ -38,10 +38,6 @@ class Document extends MarkdownFile {
 
 	function key()    { return Project::cache_key($this->filename); }
 
-	function file_exists() {
-		return file_exists($this->filename) && filesize($this->filename);
-	}
-
 	function slug() {
 		return Project::slug($this->filename);
 	}
@@ -88,11 +84,11 @@ class Document extends MarkdownFile {
 		return $date->format('Y-m-d H:i:s');	// localtime version
 	}
 
-	function syncField($field, $value, $cb=null) {
+	function syncField($field, $value, $is_callback=null) {
 		$postinfo = $this->postinfo;
 		if ( isset($postinfo['wp_error']) ) return false;
 		if ( ! isset($postinfo[$field]) ) {
-			if ( func_num_args()>2 ) $value = isset($cb) ? $value() : $cb;
+			if ( func_num_args()>2 ) $value = isset($is_callback) ? $value() : $is_callback;
 			if ( isset($value) ) {
 				if ( $field != 'wp_error' && is_wp_error($value) )
 					return $this->syncField('wp_error', $value);

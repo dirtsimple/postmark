@@ -39,6 +39,14 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
+	function sync($filename) {
+		$filename = Project::realpath($filename);
+		if ( isset($this->cache[$key = Project::cache_key($filename)]) ) {
+			return array(false, $this->cache[$key]);
+		}
+		return array(true, Project::doc($filename)->sync($this));
+	}
+
 	function cachedID($doc) {
 		if ( isset($this->cache[$key = $doc->key()]) ) return $this->cache[$key];
 	}
@@ -52,7 +60,6 @@ class Database {
 
 	function parent_id($doc) {
 		if ( ! $doc = Project::parent_doc($doc->filename) ) return null;  # root, no parent
-		if ( ! $doc->file_exists() ) return $this->parent_id($doc);       # try grandparent
 		if ( $id = $this->cachedID($doc) ) return $id;  # cached ID, we're done
 
 		$guid = $this->guidForDoc($doc);
