@@ -116,7 +116,10 @@ class Document extends MarkdownFile {
 			'post_parent' => $pid,
 		));
 
-		# Allow filters to override/patch Post-Meta (when they run later)
+		$this->postinfo = $postinfo;
+		do_action('postmark_before_sync', $this);
+
+		# Allow before-sync hook to override/patch Post-Meta before this runs
 		if ( $this->has('Post-Meta') ) {
 			# recode to arrays instead of objects
 			$meta_input = json_decode( json_encode($this['Post-Meta']), true );
@@ -126,8 +129,6 @@ class Document extends MarkdownFile {
 			}
 		}
 
-		$this->postinfo = $postinfo;
-		do_action('postmark_before_sync', $this);
 		if ( $this->_syncinfo_meta() && $this->_syncinfo_content() ) {
 			$ret = $postinfo->ref();
 			$postinfo->apply();

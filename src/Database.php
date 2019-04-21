@@ -53,7 +53,7 @@ class Database {
 
 	function cache($doc, $res) {
 		if ($res) {
-			$this->cache[$doc->key()] = $this->by_uuid[$doc->ID] = $res;
+			$this->cache[$doc->key()] = $res;
 			if ($keypath = Option::parseIdURL($doc->ID)) Option::patch($keypath, $res);  # XXX is_wp_error?
 		}
 	}

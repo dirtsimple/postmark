@@ -441,7 +441,7 @@ The following actions run during the sync process (for posts, not options), in t
 
 #### postmark_before_sync
 
-`do_action('postmark_before_sync', Document $doc)` allows modification of the document or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` object, to prevent Postmark from doing its default translations of those fields.  (The object is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo->wp_error` to a WP_Error instance will force the sync to terminate with the given error.
+`do_action('postmark_before_sync', Document $doc)` allows modification of the document (e.g. the `Post-Meta` field) or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` object, to prevent Postmark from doing its default translations of those fields.  (The object is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo->wp_error` to a WP_Error instance will force the sync to terminate with the given error.
 
 #### postmark_metadata
 
