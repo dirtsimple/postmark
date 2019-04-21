@@ -185,14 +185,21 @@ class PostmarkCommand {
 		);
 
 		foreach ($files as $filename) {
-			WP_CLI::debug("Syncing $filename", "postmark");
+			WP_CLI::debug("Starting sync of $filename", "postmark");
 			if ( ! file_exists($filename) || ! filesize($filename) ) {
 				WP_CLI::error("$filename is empty or does not exist", $explicit);
 			} else {
-				list( $synced, $res ) = yield( $db->sync($filename) );
-				if ( ! $explicit && is_wp_error($res) && $res->get_error_code() == 'missing_guid' )
-					WP_CLI::error($res->get_error_message(), false);
-				else $this->result($filename, $res, $porcelain, ! $synced);
+				$res = $db->sync(
+					$filename,
+					function ( $synced, $res ) use ($filename, $porcelain, $explicit) {
+						if ( ! $explicit && is_wp_error($res) && $res->get_error_code() == 'missing_guid' )
+							WP_CLI::error($res->get_error_message(), false);
+						else $this->result($filename, $res, $porcelain, ! $synced);
+					}
+				);
+				// Only wait for the sync to finish if specific file(s) listed
+				// and porcelain output was requested, and the result was synchronous
+				if ($explicit && $porcelain && $res) yield $res;
 			}
 		}
 	}

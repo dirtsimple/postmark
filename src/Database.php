@@ -3,6 +3,7 @@ namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Imposer;
 use dirtsimple\imposer\PostModel;
+use dirtsimple\imposer\Promise;
 
 class Database {
 
@@ -39,12 +40,15 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
-	function sync($filename) {
+	function sync($filename, $callback) {
 		$filename = Project::realpath($filename);
 		if ( isset($this->cache[$key = Project::cache_key($filename)]) ) {
-			return array(false, $this->cache[$key]);
+			return $callback(false, $ret = $this->cache[$key]);
 		}
-		return array(true, Project::doc($filename)->sync($this));
+		$res = Promise::interpret( Project::doc($filename)->sync($this) );
+		return Promise::value($res)->then( function($res) use ($callback) {
+			return $callback(true, $res);
+		});
 	}
 
 	function cachedID($doc) {
