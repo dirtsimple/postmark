@@ -86,7 +86,7 @@ By default, posts and pages are not updated unless the `.md` file has changed (o
 
 To sync a markdown file with Wordpress, the file's front matter must include a globally unique identifier in the `ID` field.  If this value is missing, Postmark will add it automatically, unless you use the `--skip-create` option (in which case you'll get an error message instead).
 
-To add an `ID`, Postmark must be able to write to both the file and the directory in question (to save a backup copy of the file during the change), so you should use `--skip-create` if those permissions are not available to the wp-cli user.
+To add an `ID`, Postmark must be able to write to both the file and the directory in question (to save a backup copy of the file during the change), so you should use `--skip-create` if those permissions are not available to the wp-cli user.  (Also, Postmark assumes that your front matter is formatted in such a way that adding an `ID:` line to the top of the front matter will not create a syntax error, i.e. that your top-level YAML is not wrapped in `{}` or anything else.)
 
 The other commands Postmark provides are:
 

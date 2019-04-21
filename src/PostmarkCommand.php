@@ -140,8 +140,8 @@ class PostmarkCommand {
 				WP_CLI::success("$filename already has an ID: of $guid");
 				continue;
 			}
-			$md->ID = $guid = 'urn:uuid:' . wp_generate_uuid4();
-			if ( $md->saveAs($filename) )
+			$guid = 'urn:uuid:' . wp_generate_uuid4();
+			if ( Project::injectGUID($filename, $guid) )
 				WP_CLI::success("$filename ID: set to $guid");
 			else WP_CLI::error("Could not save new ID to $filename");
 		}

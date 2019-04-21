@@ -45,14 +45,11 @@ class MarkdownFile extends Bag {
 
 	function dump($filename=null) {
 		$data = sprintf("%s---\n%s", Spyc::YAMLDump( $this->items(), 2, 0 ), $this->body);
-		return isset($filename) ? file_put_contents($filename, $data, LOCK_EX) : $data;
+		return isset($filename) ? Project::writeFile($filename, $data) : $data;
 	}
 
 	function saveAs($filename) {
-		if ( copy($filename, "$filename.bak") ) {
-			$r1 = $this->dump($filename); $r2 = unlink("$filename.bak");
-			return $r1 && $r2;
-		}
+		return $this->dump($filename);
 	}
 
 	function meta($key=null, $default=null) {

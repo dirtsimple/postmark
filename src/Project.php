@@ -67,6 +67,24 @@ class Project {
 		do_action('postmark_load', $doc);
 	}
 
+	static function injectGUID($file, $guid) {
+		list ($head, $tail) = explode("\n", file_get_contents($file), 2);
+		if ( ! preg_match("{^(?:---)\r*}", $head) ) {
+			$tail = "---\n$head\n$tail";
+			$head = "---";
+		}
+		return static::writeFile($file, "$head\nID: $guid\n$tail");
+	}
+
+	static function writeFile($filename, $text) {
+		$bak = "$filename.bak";
+		if ( ! file_exists($filename) || copy($filename, $bak) ) {
+			$r1 = file_put_contents($filename, $text, LOCK_EX);
+			$r2 = ! file_exists($bak) || unlink($bak);
+			return $r1 && $r2;
+		}
+	}
+
 	function render($doc, $tmpl_name, $template=null) {
 		if (!is_null($template)) $this->loader->setTemplate($tmpl_name, $template);
 		return $this->env->render($tmpl_name,

@@ -78,9 +78,8 @@ class Database {
 	}
 
 	protected function newID($doc) {
-		$md = MarkdownFile::fromFile($file = $doc->filename);
-		$md->ID = $guid = 'urn:uuid:' . wp_generate_uuid4();
-		return $md->saveAs($file) ? ($doc->ID = $guid) : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
+		$guid = 'urn:uuid:' . wp_generate_uuid4();
+		return Project::injectGUID($doc->filename, $guid) ? ($doc->ID = $guid) : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
 	static function export($post_spec, $dir='') {
