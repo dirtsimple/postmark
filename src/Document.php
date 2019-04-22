@@ -108,6 +108,9 @@ class Document extends MarkdownFile {
 			return $this->ID;
 		}
 
+		# Avoid duplicate or re-entrant sync (e.g., child synced before parent)
+		if ( isset($this->postinfo) ) return $this->postinfo->ref();
+
 		# Avoid nested action calls by ensuring parent is synced first:
 		if ( is_wp_error( $pid = $db->parent_id($this) ) ) return $pid;
 		if ( is_wp_error( $guid = $db->guidForDoc($this) ) ) return $guid;
@@ -147,11 +150,9 @@ class Document extends MarkdownFile {
 				$this->_save_opts( $this->get('Set-Options'), $id);
 				$postinfo->set_meta('_postmark_cache', $this->key());
 				$db->cache($this, $id);
-				$this->postinfo = null;  # should only exist during sync
 			});
 			return $ret;
 		}
-		$this->postinfo = null;  # should only exist during sync
 		return $postinfo['wp_error'];
 	}
 
