@@ -5,6 +5,7 @@ use dirtsimple\fn;
 use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Imposer;
 use dirtsimple\imposer\PostModel;
+use dirtsimple\imposer\TermModel;
 use Rarst\WordPress\DateTime\WpDateTime;
 use Rarst\WordPress\DateTime\WpDateTimeZone;
 use WP_CLI;
@@ -178,8 +179,8 @@ class Document extends MarkdownFile {
 		$this->syncField( 'post_type',       $this->{'WP-Type'}   ) &&
 		$this->syncField( 'tax_input',       $this->{'WP-Terms'}  ) &&
 		$this->syncField( 'post_mime_type',  $this->{'MIME-Type'} ) &&
-		$this->syncField( 'post_category',  (array) $this->Category ?: null ) &&
 		$this->syncField( 'tags_input',     (array) $this->Tags     ?: null ) &&
+		$this->syncField( 'post_category',   array($this, '_category_ids'), $this->Category ) &&
 		$this->syncField( 'post_name',       array($this, 'slug'),       true ) &&
 		$this->syncField( 'post_author',     array($this, 'author_id'),     $this->Author  ) &&
 		$this->syncField( 'post_date',       array($this, 'post_date'),     $this->Date    ) &&
@@ -206,4 +207,13 @@ class Document extends MarkdownFile {
 		return new WP_Error($code, sprintf($message, $this->filename));
 	}
 
+	function _category_ids() {
+		$cats = $this->Category;
+		if ( ! is_array($cats) ) $cats = explode( ',', trim( $cats, " \n\t\r\0\x0B," ) );
+		$res = Imposer::resource('@wp-category-term')->set_model(TermModel::class);
+		return array_map(
+			function($v) use ($res) { return is_numeric($v) ? $v : $res->ref($v); },
+			$cats
+		);
+	}
 }
