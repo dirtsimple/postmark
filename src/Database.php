@@ -45,9 +45,11 @@ class Database {
 		if ( isset($this->cache[$key = Project::cache_key($filename)]) ) {
 			return $callback(false, $ret = $this->cache[$key]);
 		}
-		$res = Promise::interpret( Project::doc($filename)->sync($this) );
-		return Promise::value($res)->then( function($res) use ($callback) {
-			return $callback(true, $res);
+		$res = Promise::call( array(Project::doc($filename), 'sync'), $this );
+		$ret = Promise::now($res, $sentinel = (object) array());
+		if ( $ret !== $sentinel ) return $callback(true, $ret);
+		return $res->then( function($ret) use ($callback) {
+			return $callback(true, $ret);
 		});
 	}
 
