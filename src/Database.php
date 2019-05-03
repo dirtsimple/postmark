@@ -41,11 +41,11 @@ class Database {
 	}
 
 	function sync($filename, $callback) {
-		$filename = Project::realpath($filename);
-		if ( isset($this->cache[$key = Project::cache_key($filename)]) ) {
+		$doc = Project::doc($filename = Project::realpath($filename));
+		if ( isset($this->cache[$key = $doc->key()]) ) {
 			return $callback(false, $ret = $this->cache[$key]);
 		}
-		$res = Promise::call( array(Project::doc($filename), 'sync'), $this );
+		$res = Promise::call( array($doc, 'sync'), $this );
 		$ret = Promise::now($res, $sentinel = (object) array());
 		if ( $ret !== $sentinel ) return $callback(true, $ret);
 		return $res->then( function($ret) use ($callback) {
@@ -85,7 +85,7 @@ class Database {
 
 	protected function newID($doc) {
 		$guid = 'urn:uuid:' . wp_generate_uuid4();
-		return Project::injectGUID($doc->filename, $guid) ? ($doc->ID = $guid) : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
+		return Project::injectGUID($doc->filename, $guid) ? $doc->load(true)->ID : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
 	static function export($post_spec, $dir='') {

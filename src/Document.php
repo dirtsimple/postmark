@@ -15,7 +15,7 @@ class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to sync w/a Database */
 
-	protected $loaded=false;
+	protected $loaded=false, $_cache_key;
 	public $filename, $postinfo=null, $is_template;
 
 	function __construct($filename, $is_tmpl=false) {
@@ -23,11 +23,12 @@ class Document extends MarkdownFile {
 		$this->is_template = $is_tmpl;
 	}
 
-	function load() {
-		if (! $this->loaded) {
+	function load($reload=false) {
+		if ( $reload || ! $this->loaded ) {
 			$this->loadFile( $this->filename );
 			$this->loaded = true;
 			Project::load($this);
+			$this->_cache_key = Project::cache_key($this->filename) . ":" . md5($this->dump());
 		}
 		return $this;
 	}
@@ -37,7 +38,7 @@ class Document extends MarkdownFile {
 	function __isset($key) {     $this->load(); return parent::__isset($key); }
 	function __unset($key) {     $this->load(); parent::__unset($key); }
 
-	function key()    { return Project::cache_key($this->filename); }
+	function key()      { return $this->load()->_cache_key; }
 
 	function slug() {
 		return Project::slug($this->filename);
@@ -125,9 +126,7 @@ class Document extends MarkdownFile {
 
 		# Allow before-sync hook to override/patch Post-Meta before this runs
 		if ( $this->has('Post-Meta') ) {
-			# recode to arrays instead of objects
-			$meta_input = json_decode( json_encode($this['Post-Meta']), true );
-			foreach ( $meta_input as $key => $val ) {
+			foreach ( $this['Post-Meta'] as $key => $val ) {
 				if ( $val === null ) $postinfo->delete_meta($key);
 				else $postinfo->set_meta($key, $val);
 			}

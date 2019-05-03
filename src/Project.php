@@ -104,7 +104,7 @@ class Project {
 
 	static function cache_key($file) {
 		$root = static::root($file);
-		return substr($file, strlen($root->root)+1) . ':' . filesize($file) . ':' . filemtime($file);
+		return substr($file, strlen($root->root)+1) . ':' . filesize($file) ;
 	}
 
 	static function slug($filename) {

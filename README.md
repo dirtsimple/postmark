@@ -13,7 +13,7 @@ Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (
 * Custom post types are allowed, and plugins can use actions and filters to support custom fields or other WP data during sync.
 * Plugins' special pages (like checkout or "my account") and themes' [custom CSS](#custom-css) can be synced using [Option References](#option-references), and plugins' HTML options can be synced using [Option HTML Values](#option-html-values)
 * [Prototypes and Templating](#prototypes-and-templating): In addition to their WP post type, files can have a `Prototype`, from which they inherit properties and an optional Twig template that can generate additional static content using data from the document's front-matter.
-* Posts or pages are only updated if the size, timestamp, name, or location of an input file are changed (unless you use `--force`)
+* Posts or pages are only updated if the size, timestamp, name, location, or contents of an input file (or its prototype/template files) are changed (unless you use `--force`)
 * Works great with almost any file-watching tool (like entr, gulp, modd, reflex, guard, etc.) to update edited posts as soon as you save them, with only the actually-changed files being updated even if your tool can't pass along the changed filenames.
 * Markdown is converted using [league/commonmark](league/commonmark) with the [table](https://github.com/webuni/commonmark-table-extension#syntax) and [attribute](https://github.com/webuni/commonmark-attributes-extension#syntax) extensions, and you can add other extensions via filter.  Markdown content can include shortcodes, too.  (Though you may need to backslash-escape adjacent opening brackets to keep them from being treated as markdown footnote links.  Shortcode openers or closers that are on a line by themselves will be placed outside any paragraphs, divs, tables, etc. that they break, precede, or follow.)
 * Parent posts or pages are supported (nearest `index.md` above a file becomes its parent, recursively)
@@ -40,17 +40,19 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
 - [Prototypes and Templating](#prototypes-and-templating)
   * [Template Processing](#template-processing)
   * [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
-  * [Syncing Changes To Prototypes and Templates](#syncing-changes-to-prototypes-and-templates)
+- [Change Detection](#change-detection)
 - [Imposer Integration](#imposer-integration)
 - [Exporting Posts and Pages](#exporting-posts-and-pages)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
-  * [Document Objects and Sync](#document-objects-and-sync)
+  * [Document Objects](#document-objects)
+    + [postmark_load](#postmark_load)
+  * [Sync Actions for Posts](#sync-actions-for-posts)
     + [postmark_before_sync](#postmark_before_sync)
     + [postmark_metadata](#postmark_metadata)
     + [postmark_content](#postmark_content)
     + [postmark_after_sync](#postmark_after_sync)
-  * [Option Sync Actions](#option-sync-actions)
+  * [Sync Actions for Options](#sync-actions-for-options)
     + [postmark_before_sync_option](#postmark_before_sync_option)
     + [postmark_after_sync_option](#postmark_after_sync_option)
   * [Export Actions and Filters](#export-actions-and-filters)
@@ -259,7 +261,7 @@ Some Wordpress plugins have options containing HTML content, that you might pref
 ID: "urn:x-option-value:edd_settings/purchase_receipt"
 ```
 
-A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) and [option sync](#option-sync-actions) hooks are invoked during the process, and the command output will list the `ID:` instead of a Wordpress numeric post ID.
+A post with the above `ID:` will be synced by converting the document body to HTML, and then saving the result to the `purchase_receipt` key of the `edd_settings` option.  Most other front matter is ignored (except for that used by [prototypes and templating](#prototypes-and-templating)) and *no actual post is created*, so only the [markdown formatting](#markdown-formatting) and [option sync](#sync-actions-for-options) hooks are invoked during the process, and the command output will list the `ID:` instead of a Wordpress numeric post ID.
 
 Since options don't have meta fields, the sync timestamp for options is kept in a (non-autoload) option, `postmark_option_cache`, thereby avoiding unnecessary updates for unchanged documents.  (It is safe to delete this option, however, since the only effect will be to effectively `--force` the next resync of any documents whose `ID:` is an option value.)
 
@@ -335,20 +337,34 @@ with a `macros.twig` in our `_postmark` or `.postmark` directory containing:
 
 A limited form of prototype inheritance is supported: if a prototype has a `.type.md` file with a `Prototype:`, then *that* prototype's properties are treated as defaults for the `.type.md`.  (Recursively, if the second prototype itself has a `Prototype:`).  Only properties are inherited, not templates, since applying a template to a template is unlikely to be useful.  If you need to share a template between multiple prototypes, put it in a separate `.twig` file, and then use Twig's `include()` (or `extends` or `import`) to apply it in each of the places where it's needed.
 
-### Syncing Changes To Prototypes and Templates
+## Change Detection
 
-Currently, postmark does not automatically re-sync unchanged documents whose prototype or template files have changed.  You can manually re-sync such documents using the `--force` option.  For convenience, you may wish to use a file-watching tool to do this automatically, e.g. via .[devkit](https://github.com/bashup/.devkit)'s [reflex-watch](https://github.com/bashup/.devkit#reflex-watch) module:
+To make syncing as fast as possible, Postmark caches information about imported documents in the Wordpress database, and avoids updating the database unless a document (or its prototype file(s)) have actually changed.
 
-~~~shell
-# Changes to content should be synced immediately, w/full sync at watch start
-# and when templates or prototypes change
+The information that Postmark caches includes a hash of the document's front matter and body, after prototypes have been inherited and templates applied.  This ensures that if either the document or its prototype files have changed, then the database will be updated with the new results.
 
-before "watch" wp postmark tree ./content
-watch 'content/**/*.md' '!**/.postmark/*.md' -- wp postmark sync {}
-watch 'content/.postmark/**' -- wp postmark tree ./content --force
-~~~
+What this process does *not* automatically detect, however, is changes made to plugins, actions, filters, etc. that affect how the document is rendered to HTML or what data will get inserted into the database.  Such changes will not normally be captured unless you use `--force` to sync *all* documents, or you add extra fields to your front matter.
 
-The above .devkit configuration watches `./content` for changes to individual documents and runs `wp postmark sync` on the specific changed documents.  But if a file under `./content/.postmark` is changed, it resyncs the entire `./content` tree with `--force`, ensuring that all documents are up-to-date.
+For example, you could add a `Prototype-Version` field to your prototypes, and then change this field's value to trigger changes for all the documents using that prototype.
+
+Of course, that doesn't help you if you're creating a Postmark extension (e.g. in a  wp-cli package, plugin, theme, or Imposer state module).  You can't edit your users' prototype files, assuming you even knew what to edit.
+
+But you *can* "edit" your users' *front-matter* at import time, using the [`postmark_load` action](#postmark_load).  For example:
+
+```php
+add_action('postmark_load', function($doc) {
+    if ( $doc->has('EDD') ) $doc['EDD-Importer-Version'] = '4.1';
+}, 10, 1);
+
+add_action('postmark_metadata', function($postinfo, $doc) {
+	if ( ! $doc->get('EDD') ) return;
+    // ...  code to import various things to $postinfo
+}, 10, 2);
+```
+
+In this example, the `postmark_load` handler adds an extra `EDD-Importer-Version` field when a document is loaded that contains an `EDD` field.  This means that if the import semantics for the `EDD` field change, the version can be changed, and then any documents with an `EDD` field will be considered "changed" since their last sync.  In this way, merely upgrading the plugin (or package, state module, theme, etc.) will automatically invalidate caching for the affected documents.
+
+(Note, by the way, that this type of versioning is *only* required for extensions that are altering the HTML formatting or need access to the postinfo object.  If an extension is just providing syntax sugar or remapping fields, and can do everything it needs from the `postmark_load` action, then the remapped fields would already be part of the document hash, and so any change in the remapping process would automatically change the hash of any documents affected by the change.)
 
 ## Imposer Integration
 
@@ -416,7 +432,9 @@ Markdown formatting is controlled by the following filters:
 
 Note that `postmark_markdown` and `postmark_html` may be invoked several times or not at all, as they are run whenever `$doc->html(...)` is called.  If a sync filter or action set `$postinfo['post_content']` or `$postinfo['post_excerpt']` before Postmark has a chance to, these filters won't be invoked unless the filter or action uses `$doc->html(...)` to do the conversion.
 
-### Document Objects and Sync
+Also note that if you are adding hooks to *any* of these filters, you should also add versioning info to documents during the `postmark_load` filter, so that when your extension is added, removed, or updated, affected documents will be considered "changed" and get re-synced.
+
+### Document Objects
 
 Many filters and actions receive `dirtsimple\Postmark\Document` objects as a parameter.  These objects offer the following API:
 
@@ -427,7 +445,15 @@ Many filters and actions receive `dirtsimple\Postmark\Document` objects as a par
 * `$doc->get("field", $default=null)` returns the content of "field" from the frontmatter, or `$default` if it's not found
 * `$doc->select(['field'=>callback, ...])` calls each *callback* if the matching field exists, with the value of that field.  The return value is an array containing only keys for the fields that existed, with the values being the result of calling the callback.  If a callback isn't actually callable (e.g. `true`), the value is returned as-is in the output array.  If a callback is an associative array, it's processed recursively, so that e.g. `$doc->select(['EDD'=>['Price'=>$cb]])` will call `$cb` if and only if there is an `EDD` front matter field that's an associative array with a `Price` subfield.
 
-During the sync process, a document builds up a `$doc->postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$doc->postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
+#### postmark_load
+
+Whenever a document is loaded from disk, `do_action('postmark_load', Document $doc)` is run, to allow modification of the document (e.g. its`Post-Meta` field) before the document hash is calculated.  Any changes made to the document during this action will affect the hash calculation, so this is the ideal place to do simple syntax sugar or field remappings.
+
+If you're writing an extension that needs to do complex calculations or access the database, however, you should probably use a different hook, and add a versioning field (e.g. `MyPlugin-Version-Info`) during this action in order to ensure that documents get re-synced when your algorithms change.  Likewise, if your extension is altering how markdown formatting is done, you should add a versioning field to ensure that adding, removing, or updating your extension will force affected documents to re-sync.
+
+### Sync Actions for Posts
+
+During the sync process for posts, a document builds up a `$doc->postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$doc->postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
 
 For example, Postmark calculates the `post_content` after calling the `postmark_metadata` action, but before the `postmark_content` action.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` action.
 
@@ -461,7 +487,7 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 
 `do_action('postmark_after_sync', Document $doc, WP_Post $rawPost)` allows post-sync actions to be run on the document and/or resulting post.  `$rawPost` is a `raw`-filtered Wordpress WP_Post object, reflecting the now-synced post.  This can be used to process front matter fields that require the post ID to be known (e.g. adding data to custom tables).
 
-### Option Sync Actions
+### Sync Actions for Options
 
 #### postmark_before_sync_option
 
