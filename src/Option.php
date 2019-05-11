@@ -7,6 +7,20 @@ use WP_CLI;
 
 class Option {
 
+	static function sync_doc($doc, $db, $key) {
+		# Option value? Update directly and cache in options
+		if ( $keypath = static::parseValueURL($doc->ID) ) {
+			do_action('postmark_before_sync_option', $doc, $keypath);
+			static::patch($keypath, $doc->html());
+			do_action('postmark_after_sync_option', $doc, $keypath);
+			static::patch(array('postmark_option_cache', $doc->ID), $key, 'no');
+			return $doc->ID;
+		} else return $doc->filenameError(
+			'non_option_guid',
+			__( '%s: GUID %s is not a valid x-option-value URN', 'postmark'), $doc->ID
+		);
+	}
+
 	static function postFor($guid) {
 		if (
 			($keypath = static::parseIdURL($guid)) &&

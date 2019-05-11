@@ -2,8 +2,10 @@
 namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Imposer;
+use dirtsimple\imposer\Pool;
 use dirtsimple\imposer\PostModel;
 use dirtsimple\imposer\Promise;
+use dirtsimple\imposer\WatchedPromise;
 
 class Database {
 
@@ -15,6 +17,25 @@ class Database {
 		$this->reindex($cache);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
+
+		$this->docs = new Pool(function($filename) { return Project::doc($filename, false); });
+		$this->results = new Pool(function($filename, $pool) {
+			$doc = $this->docs[$filename];
+			$key = $doc->key();
+
+			# Valid ID?
+			if ( is_wp_error( $guid = $this->guidForDoc($doc) ) ) {
+				return $guid;
+			}
+
+			$handler = Option::parseValueURL($guid) ? 'Option' : 'PostImporter';
+			$handler = "dirtsimple\\Postmark\\$handler::sync_doc";
+			$handler = apply_filters('postmark_sync_handler', $handler, $doc);
+
+			$ref = $pool[$filename] = new WatchedPromise;
+			$ref->call($handler, $doc, $this, $key);
+			return $ref;
+		});
 	}
 
 	static function legacy_filter($types) {
@@ -40,12 +61,16 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
-	function sync($filename, $callback) {
-		$doc = Project::doc($filename = Project::realpath($filename));
+	function sync($filename, $callback=null) {
+		# Default callback just passes result through
+		$callback = $callback ?: function($res) { return $res; };
+
+		$doc = $this->docs[$filename];
 		if ( isset($this->cache[$key = $doc->key()]) ) {
 			return $callback(false, $ret = $this->cache[$key]);
 		}
-		$res = Promise::call( array($doc, 'sync'), $this );
+
+		$res = $this->results[$doc->filename];
 		$ret = Promise::now($res, $sentinel = (object) array());
 		if ( $ret !== $sentinel ) return $callback(true, $ret);
 		return $res->then( function($ret) use ($callback) {
@@ -64,18 +89,7 @@ class Database {
 		}
 	}
 
-	function parent_id($doc) {
-		if ( ! $doc = Project::parent_doc($doc->filename) ) return null;  # root, no parent
-		if ( $id = $this->cachedID($doc) ) return $id;  # cached ID, we're done
-
-		$guid = $this->guidForDoc($doc);
-		if ( is_wp_error($guid) ) return $guid;
-
-		$id = Imposer::resource('@wp-post')->lookup($guid, 'guid');
-		return $id ?: $doc->sync($this);
-	}
-
-	function guidForDoc($doc) {
+	protected function guidForDoc($doc) {
 		return (
 			$doc->ID           ? $doc->ID : (
 			$this->allowCreate ? $this->newID($doc) : (
