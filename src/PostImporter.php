@@ -13,9 +13,9 @@ use WP_Error;
 
 class PostImporter {
 
-	static function sync_doc($doc, $db, $key) {
+	static function sync_doc($doc, $db, $etag) {
 		$self = new PostImporter($db, $doc);
-		return $self->sync($key);
+		return $self->sync($etag);
 	}
 
 	function __construct($db, $doc) {
@@ -85,7 +85,7 @@ class PostImporter {
 		return $field != 'wp_error';
 	}
 
-	function sync($key) {
+	function sync($etag) {
 		$doc = $this->doc;
 		$postinfo = $this->postinfo;
 
@@ -105,7 +105,7 @@ class PostImporter {
 			}
 			$ret = $postinfo->ref();
 			$postinfo->apply();
-			$postinfo->also(function() use($doc, $key) {
+			$postinfo->also(function() use($doc, $etag) {
 				global $wpdb;
 				$id = yield $this->postinfo->ref();
 
@@ -120,7 +120,7 @@ class PostImporter {
 				do_action('postmark_after_sync', $this->doc, get_post($id));
 
 				$this->_save_opts( $this->doc->get('Set-Options'), $id);
-				$this->postinfo->set_meta('_postmark_cache', $key);
+				$this->postinfo->set_meta('_postmark_cache', $etag);
 				$this->db->cache($this->doc, $id);
 			});
 			return $ret;

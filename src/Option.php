@@ -7,13 +7,13 @@ use WP_CLI;
 
 class Option {
 
-	static function sync_doc($doc, $db, $key) {
+	static function sync_doc($doc, $db, $etag) {
 		# Option value? Update directly and cache in options
 		if ( $keypath = static::parseValueURL($doc->ID) ) {
 			do_action('postmark_before_sync_option', $doc, $keypath);
 			static::patch($keypath, $doc->html());
 			do_action('postmark_after_sync_option', $doc, $keypath);
-			static::patch(array('postmark_option_cache', $doc->ID), $key, 'no');
+			static::patch(array('postmark_option_cache', $doc->ID), $etag, 'no');
 			return $doc->ID;
 		} else return $doc->filenameError(
 			'non_option_guid',

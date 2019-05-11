@@ -21,7 +21,7 @@ class Database {
 		$this->docs = new Pool(function($filename) { return Project::doc($filename, false); });
 		$this->results = new Pool(function($filename, $pool) {
 			$doc = $this->docs[$filename];
-			$key = $doc->key();
+			$etag = $doc->etag();
 
 			# Valid ID?
 			if ( is_wp_error( $guid = $this->guidForDoc($doc) ) ) {
@@ -33,7 +33,7 @@ class Database {
 			$handler = apply_filters('postmark_sync_handler', $handler, $doc);
 
 			$ref = $pool[$filename] = new WatchedPromise;
-			$ref->call($handler, $doc, $this, $key);
+			$ref->call($handler, $doc, $this, $etag);
 			return $ref;
 		});
 	}
@@ -66,8 +66,8 @@ class Database {
 		$callback = $callback ?: function($res) { return $res; };
 
 		$doc = $this->docs[$filename];
-		if ( isset($this->cache[$key = $doc->key()]) ) {
-			return $callback(false, $ret = $this->cache[$key]);
+		if ( isset($this->cache[$etag = $doc->etag()]) ) {
+			return $callback(false, $ret = $this->cache[$etag]);
 		}
 
 		$res = $this->results[$doc->filename];
@@ -79,12 +79,12 @@ class Database {
 	}
 
 	function cachedID($doc) {
-		if ( isset($this->cache[$key = $doc->key()]) ) return $this->cache[$key];
+		if ( isset($this->cache[$etag = $doc->etag()]) ) return $this->cache[$etag];
 	}
 
 	function cache($doc, $res) {
 		if ($res) {
-			$this->cache[$doc->key()] = $res;
+			$this->cache[$doc->etag()] = $res;
 			if ($keypath = Option::parseIdURL($doc->ID)) Option::patch($keypath, $res);  # XXX is_wp_error?
 		}
 	}
