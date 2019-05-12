@@ -453,11 +453,11 @@ If you're writing an extension that needs to do complex calculations or access t
 
 ### Sync Actions for Posts
 
-During the sync process for posts, a document builds up a `$doc->postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  Postmark only sets values in `$doc->postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.
+During the sync process for posts, a document builds up a `$postinfo` array to be passed into `wp_insert_post` or `wp_update_post`.  (Postmark only sets values in the `$postinfo` that have not already been set by an action or filter, so you can prevent it from doing so by setting a value first.)
 
 For example, Postmark calculates the `post_content` after calling the `postmark_metadata` action, but before the `postmark_content` action.  This means you can prevent Postmark from doing its own Markdown-to-HTML conversion by setting `post_content` from either the `postmark_before_sync` action, or the `postmark_metadata` action.
 
-Note: `$doc->postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  You can see the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on most of the other available methods, but there are some additional methods you might find helpful:
+Note: `$postinfo` is not actually a PHP array -- it's a PHP `ArrayObject` subclass with a few extra methods, like `get($key, $default=null)`, `has($key)`, and a few others.  But you can still treat is as a regular array for purposes of setting, getting, or removing items.  You can see the [dirtsimple\\imposer\\Bag class](https://github.com/dirtsimple/imposer/blob/master/src/Bag.php) for info on most of the other available methods, but there are some additional methods you might find helpful:
 
 * `$postinfo->id()` returns the post ID if an existing post is being updated, or null if the post is new.
 * `$postinfo->set_meta($key, $val)` -- does an `update_post_meta`, setting `$key` to `$val`.  `$key` can be a string or an array: if it's an array, it's treated as a path to a subitem within the meta field, working much like a key path for the wp-cli `wp post meta patch insert` command, except that parent arrays are automatically created.
@@ -467,13 +467,13 @@ The following actions run during the sync process (for posts, not options), in t
 
 #### postmark_before_sync
 
-`do_action('postmark_before_sync', Document $doc)` allows modification of the document (e.g. the `Post-Meta` field) or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$doc->postinfo` object, to prevent Postmark from doing its default translations of those fields.  (The object is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$doc->postinfo->wp_error` to a WP_Error instance will force the sync to terminate with the given error.
+`do_action('postmark_before_sync', Document $doc, PostModel $postinfo)` allows modification of the document (e.g. the `Post-Meta` field) or other actions before it gets synced.  This action can set Wordpress post fields (e.g. `post_author `, `post_type`) in the `$postinfo` object, to prevent Postmark from doing its default translations of those fields.  (The object is mostly empty at this point, however, so reading from it is not very useful.)  Setting `$postinfo->wp_error` to a WP_Error instance will force the sync to terminate with the given error.
 
 #### postmark_metadata
 
-`do_action('postmark_metadata', $postinfo, Document $doc)` lets you modify the `$postinfo` that will be passed to `wp_insert_post` or `wp_update_post`.  This hook can be used to override or extend the calculation of Wordpress fields based on the front matter.   (Note `$postinfo` here is actually `$doc->postinfo`, passed separately for convenience.)
+`do_action('postmark_metadata', PostModel $postinfo, Document $doc)` lets you modify the `$postinfo` that will be passed to `wp_insert_post` or `wp_update_post`.  This hook can be used to override or extend the calculation of Wordpress fields based on the front matter.
 
-When this action runs, `$postinfo` is  initialized with any Wordpress field values that Postmark has calculated from the front matter,  or which were set in `$doc->postinfo` by `postmark_before_sync` actions.  It does *not*, however, contain the `post_content` or `post_excerpt` yet, unless set by a previous action or filter.
+When this action runs, `$postinfo` is  initialized with any Wordpress field values that Postmark has calculated from the front matter,  or which were set in `$postinfo` by `postmark_before_sync` actions.  It does *not*, however, contain the `post_content` or `post_excerpt` yet, unless set by a previous action or filter.
 
 Functions registered for this action can set the `post_content` or `post_excerpt` in `$postinfo` to pre-empt Postmark from doing so.  They can also set `$postinfo['wp_error']` to a WP_Error object to terminate the sync process with an error.
 
@@ -491,7 +491,7 @@ If `post_content`, `post_title`, `post_excerpt`, or `post_status` remain empty a
 
 #### postmark_before_sync_option
 
-`do_action('postmark_before_sync_option', Document $doc, array $optpath)` runs before processing documents that sync to an [option HTML value](#option-html-values).  There is no `$doc->postinfo`, since no post will be created or updated.  However, this filter can still access or modify any other properties of the document, for example to preprocess the body in some way before the option is updated.  For convenience, `$optpath` contains the path to the option being synced, e.g. `['edd_settings', 'purchase_receipt']`.
+`do_action('postmark_before_sync_option', Document $doc, array $optpath)` runs before processing documents that sync to an [option HTML value](#option-html-values).  There is no `$postinfo`, since no post will be created or updated.  However, this filter can still access or modify any other properties of the document, for example to preprocess the body in some way before the option is updated.  For convenience, `$optpath` contains the path to the option being synced, e.g. `['edd_settings', 'purchase_receipt']`.
 
 #### postmark_after_sync_option
 
