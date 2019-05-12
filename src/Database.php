@@ -50,11 +50,13 @@ class Database {
 	protected function reindex($cache) {
 		global $wpdb;
 		$filter = PostModel::posttype_exclusion_filter();
-		if ( $cache ) $this->cache = array_flip(
-			get_option( 'postmark_option_cache' ) ?: array()
-		) + $this->_index(
-			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
-			 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
+		if ( $cache ) $this->cache = apply_filters(
+			'postmark_etag_cache', array_flip(
+				get_option( 'postmark_option_cache', array() )
+			) + $this->_index(
+				"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
+				 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
+			)
 		); else $this->cache = array();
 	}
 
