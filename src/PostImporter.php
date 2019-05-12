@@ -13,9 +13,9 @@ use WP_Error;
 
 class PostImporter {
 
-	static function sync_doc($doc, $db, $etag) {
+	static function sync_doc($doc, $db) {
 		$self = new PostImporter($db, $doc);
-		return $self->sync($etag);
+		return $self->sync();
 	}
 
 	function __construct($db, $doc) {
@@ -85,7 +85,7 @@ class PostImporter {
 		return $field != 'wp_error';
 	}
 
-	function sync($etag) {
+	function sync() {
 		$doc = $this->doc;
 		$postinfo = $this->postinfo;
 
@@ -103,11 +103,10 @@ class PostImporter {
 					else $postinfo->set_meta($key, $val);
 				}
 			}
-			$ret = $postinfo->ref();
 			$postinfo->apply();
-			$postinfo->also(function() use($doc, $etag) {
+			$postinfo->also(function() use($doc, $postinfo) {
 				global $wpdb;
-				$id = yield $this->postinfo->ref();
+				$id = yield $postinfo->ref();
 
 				# Updating a post doesn't update its guid, so we might have to force it
 				if ( get_post_field('guid', $id) !== $doc->ID ) {
@@ -117,13 +116,13 @@ class PostImporter {
 					PostModel::on_save_post($id, (object) $post);
 				}
 
-				do_action('postmark_after_sync', $this->doc, get_post($id));
+				do_action('postmark_after_sync', $doc, get_post($id));
 
-				$this->_save_opts( $this->doc->get('Set-Options'), $id);
-				$this->postinfo->set_meta('_postmark_cache', $etag);
-				$this->db->cache($this->doc, $id);
+				$this->_save_opts( $doc->get('Set-Options'), $id);
+				$postinfo->set_meta('_postmark_cache', $doc->etag());
+				if ($keypath = Option::parseIdURL($doc->ID)) Option::patch($keypath, $id);
 			});
-			return $ret;
+			return $postinfo->ref();
 		}
 		return $postinfo['wp_error'];
 	}
