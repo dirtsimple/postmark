@@ -67,17 +67,21 @@ class Option {
 	}
 
 	static function patch(array $keypath, $value, $autoload=null) {
-		$option	= array_shift($keypath);
-		$old = $current = static::sanitize_option( $option, get_option( $option ) );
+		static::edit( array_shift($keypath), function($current) use ($keypath, $value) {
+			$traverser = new RecursiveDataStructureTraverser($current);
+			try {
+				$traverser->insert($keypath, $value);
+			} catch ( \Exception $e ) {
+				WP_CLI::error( $e->getMessage() );	# XXX return a WP_Error?  Fall through?
+			}
+			return $traverser->value();
+		}, $autoload);
+	}
+
+	static function edit($option, $callback, $autoload=null, $default=array()) {
+		$old = $current = static::sanitize_option( $option, get_option( $option, $default ) );
 		if ( is_object($current) ) $old = clone $current;
-		if ( $current === false && $keypath ) $current = array();
-		$traverser = new RecursiveDataStructureTraverser($current);
-		try {
-			$traverser->insert($keypath, $value);
-		} catch ( \Exception $e ) {
-			WP_CLI::error( $e->getMessage() );	# XXX return a WP_Error?  Fall through?
-		}
-		$patched = static::sanitize_option( $option, $traverser->value() );
+		$patched = static::sanitize_option( $option, $callback($current) );
 		if ( $patched === $old ) return;
 		update_option( $option, $patched, $autoload ) || WP_CLI::error( "Could not update option '$option'." );
 	}
