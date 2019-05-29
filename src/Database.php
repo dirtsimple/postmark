@@ -66,7 +66,7 @@ class Database {
 
 	function sync($filename, $callback=null) {
 		# Default callback just passes result through
-		$callback = $callback ?: function($res) { return $res; };
+		$callback = $callback ?: function($already, $res) { return $res; };
 
 		$doc = $this->docs[$filename];
 		if ( isset($this->cache[$etag = $doc->etag()]) ) {
