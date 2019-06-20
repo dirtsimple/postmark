@@ -2,7 +2,6 @@
 namespace dirtsimple\Postmark;
 use Twig\Loader;
 use Twig\Environment;
-use Mustangostang\Spyc;
 
 class Project {
 
@@ -15,12 +14,13 @@ class Project {
 			static::$docs[$filename] = new Document($filename, $is_tmpl);
 	}
 
-	protected $root;
+	protected $root, $base, $loader, $pdir, $prototypes=array();
 
 	function __construct($root, $base) {
 		$this->root = $root;
 		$this->base = $base;
 		$this->loader = new Loader\ArrayLoader();
+
 		$chain = new Loader\ChainLoader( array($this->loader) );
 		foreach( array('_', '.') as $pre ) {
 			$dir = "$this->base/{$pre}postmark";
@@ -31,39 +31,43 @@ class Project {
 				break;
 			}
 		}
-		$this->prototypes = $dir;
+		$this->pdir = $dir;
 		$this->env = new Environment($chain, array('autoescape'=>false));
+
+		$type_files = array();
+		foreach ( glob("$dir/*.type.*") as $file ) {
+			$name = explode('.type.', static::basename($file));
+			$type = array_pop($name);
+			$name = implode('.type.', $name);
+			$type_files[$name][$type] = $file;
+		}
+
+		foreach ( $type_files as $name => $files ) {
+			$this->prototypes[$name] = new Prototype($this, $files);
+		}
 	}
 
 	static function load($doc) {
-		if ( !empty($doc->Prototype) ) {
-			$root = static::root($doc->filename);
-			$typename = $doc->Prototype;
-			$found = false;
-			$typefile = "$root->prototypes/$typename.type";
+		if ( ! $doc->has('Prototype') ) {
+			$parts = explode( '.', static::basename($doc->filename) );
+			array_pop($parts);   # remove .md
+			array_shift($parts); # remove base name
+			if ( count($parts) ) $doc->Prototype = array_pop($parts);
+		}
 
-			if ( file_exists("$typefile.yml") ) {
-				$found = true;
-				$doc->inherit( Spyc::YAMLLoad("$typefile.yml") );
-			}
-			if ( file_exists("$typefile.md") ) {
-				$found = true;
-				$type = static::doc("$typefile.md", true)->load();
-				$doc->inherit( $type->meta() );
-				if ( ! $doc->is_template && !empty(trim($tpl = $type->unfence('twig'))) ) {
-					$doc->body = $root->render($doc, "$typename.type.md", $tpl);
-				}
-			}
-			if ( file_exists("$typefile.twig") ) {
-				$found = true;
-				if ( ! $doc->is_template ) $doc->body = $root->render($doc, "$typename.type.twig");
-			}
-			if ( ! $found ) {
+		if ( ! empty($name = $doc->Prototype) ) {
+			$root = static::root($doc->filename);
+			if ( isset( $root->prototypes[$name] ) ) {
+				$root->prototypes[$name]->apply_to($doc);
+			} else {
 				throw new Error(
-					__('%s: No %s type found at %s', 'postmark'), $doc->filename, $typename, "$typefile.{yml,twig,md}"
+					__('%s: No %s type found at %s', 'postmark'), $doc->filename, $name, "$root->pdir/$name.{yml,twig,md}"
 				);
 			}
 		}
+
+		if ( $doc->is_template ) return;
+
 		do_action('postmark_load', $doc);
 	}
 
