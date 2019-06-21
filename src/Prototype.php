@@ -12,10 +12,7 @@ class Prototype {
 	}
 
 	function apply_to($doc) {
-		$mdfile = $this->mdfile ?: $this->load();
-
-		$doc->inherit( $mdfile->meta() );
-		if ( $doc->is_template ) return;
+		$doc->inherit( $this->meta() );
 
 		if ( ! empty($tpl = $this->mdfile->body) ) {
 			$doc->body = $this->root->render($doc, $this->files['md'], $tpl);
@@ -26,7 +23,12 @@ class Prototype {
 		}
 	}
 
-	function load() {
+	function meta() { return $this->load()->meta();	}
+
+	protected function load() {
+
+		if ( isset($this->mdfile) ) return $this->mdfile;
+
 		$this->mdfile = new MarkdownFile();
 
 		if ( isset( $this->files['yml'] ) ) {
@@ -34,11 +36,19 @@ class Prototype {
 		}
 
 		if ( isset( $this->files['md'] ) ) {
-			$type = Project::doc( $this->files['md'], true );
+
+			$filename = $this->files['md'];
+			$type = MarkdownFile::fromFile($filename);
+
+			if ( $super = $type->get('Prototype') ) {
+				$type->inherit( Project::prototype($filename, $super)->meta() );
+			}
+
 			$this->mdfile->inherit( $type->meta() );
+
 			if ( ! empty(trim($tpl = $type->unfence('twig'))) ) {
 				$this->mdfile->body = $tpl;
-				$this->files['md'] = Project::basename($this->files['md']);
+				$this->files['md'] = Project::basename($filename);
 			}
 		}
 

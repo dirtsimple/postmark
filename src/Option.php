@@ -7,7 +7,7 @@ use WP_CLI;
 
 class Option {
 
-	static function sync_doc($doc, $db) {
+	static function sync_doc($doc) {
 		# Option value? Update directly and cache in options
 		if ( $keypath = static::parseValueURL($doc->ID) ) {
 			do_action('postmark_before_sync_option', $doc, $keypath);

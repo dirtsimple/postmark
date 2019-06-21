@@ -7,12 +7,12 @@ class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to compute key and get slugs */
 
-	protected $loaded=false, $_cache_key;
-	public $filename, $postinfo=null, $is_template;
+	protected $loaded=false, $_cache_key, $db;
+	public $filename;
 
-	function __construct($filename, $is_tmpl=false) {
+	function __construct($filename, $db) {
 		$this->filename = $filename;
-		$this->is_template = $is_tmpl;
+		$this->db = $db;
 	}
 
 	function load($reload=false) {
@@ -32,6 +32,10 @@ class Document extends MarkdownFile {
 
 	function etag()      { return $this->load()->_cache_key; }
 
+	function sync($callback=null) {
+		return $this->db->sync($this->filename, $callback);
+	}
+
 	function slug() {
 		return Project::slug($this->filename);
 	}
@@ -40,4 +44,8 @@ class Document extends MarkdownFile {
 		return new WP_Error($code, sprintf($message, $this->filename, ...$args));
 	}
 
+	function parent() {
+		$filename = Project::parent_of($this->filename);
+		return isset($filename) ? $this->db->doc($filename) : null;
+	}
 }

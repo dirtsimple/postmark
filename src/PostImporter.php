@@ -13,20 +13,19 @@ use WP_Error;
 
 class PostImporter {
 
-	static function sync_doc($doc, $db) {
-		$self = new PostImporter($db, $doc);
+	static function sync_doc($doc) {
+		$self = new PostImporter($doc);
 		return $self->sync();
 	}
 
-	function __construct($db, $doc) {
-		$this->db = $db;
+	function __construct($doc) {
 		$this->doc = $doc;
 		$this->postinfo = Imposer::define('@wp-post', $doc->ID, 'guid');
 	}
 
 	function parent_id() {
-		if ( ! $doc = Project::parent_doc($this->doc->filename) ) return null;  # root, no parent
-		return $this->db->sync($doc->filename);
+		if ( ! $doc = $this->doc->parent() ) return null;  # root, no parent
+		return $doc->sync();
 	}
 
 	function splitTitle() {

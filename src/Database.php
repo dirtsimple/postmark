@@ -1,6 +1,7 @@
 <?php
 namespace dirtsimple\Postmark;
 
+use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Imposer;
 use dirtsimple\imposer\Pool;
 use dirtsimple\imposer\PostModel;
@@ -9,7 +10,7 @@ use dirtsimple\imposer\WatchedPromise;
 
 class Database {
 
-	protected $cache, $allowCreate;
+	protected $cache, $allowCreate, $post_types, $docs, $results;
 
 	function __construct($cache=true, $allowCreate=true) {
 		# ensure Imposer and all hooks/tasks are initialized first
@@ -18,9 +19,10 @@ class Database {
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
 
-		$this->docs = new Pool(function($filename) { return Project::doc($filename, false); });
+		$this->docs = new Bag();
+
 		$this->results = new Pool(function($filename, $pool) {
-			$doc = $this->docs[$filename];
+			$doc = $this->doc($filename);
 
 			# Valid ID?
 			if ( is_wp_error( $guid = $this->guidForDoc($doc) ) ) {
@@ -33,7 +35,7 @@ class Database {
 
 			$ref = $pool[$filename] = new WatchedPromise;
 			$ref->call(function() use ($handler, $doc) {
-				$this->cache[$doc->etag()] = yield $handler($doc, $this);
+				$this->cache[$doc->etag()] = yield $handler($doc);
 			});
 			return $ref;
 		});
@@ -64,11 +66,16 @@ class Database {
 		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
+	function doc($filename) {
+		$filename = Project::realpath($filename);
+		return $this->docs->get($filename) ?: $this->docs[$filename] = new Document($filename, $this);
+	}
+
 	function sync($filename, $callback=null) {
 		# Default callback just passes result through
 		$callback = $callback ?: function($already, $res) { return $res; };
 
-		$doc = $this->docs[$filename];
+		$doc = $this->doc($filename);
 		if ( isset($this->cache[$etag = $doc->etag()]) ) {
 			return $callback(false, $ret = $this->cache[$etag]);
 		}

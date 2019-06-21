@@ -7,13 +7,6 @@ class Project {
 
 	protected static $docs=array();
 
-	static function doc($filename, $is_tmpl=false) {
-		$filename = Project::realpath($filename);
-		return isset(static::$docs[$filename]) ?
-			static::$docs[$filename] :
-			static::$docs[$filename] = new Document($filename, $is_tmpl);
-	}
-
 	protected $root, $base, $loader, $pdir, $prototypes=array();
 
 	function __construct($root, $base) {
@@ -47,6 +40,17 @@ class Project {
 		}
 	}
 
+	static function prototype($filename, $type) {
+		$root = Project::root($filename);
+		if ( isset( $root->prototypes[$type] ) ) {
+			return $root->prototypes[$type];
+		} else {
+			throw new Error(
+				__('%s: No %s type found at %s', 'postmark'), $filename, $type, "$root->pdir/$type.type.{yml,twig,md}"
+			);
+		}
+	}
+
 	static function load($doc) {
 		if ( ! $doc->has('Prototype') ) {
 			$parts = explode( '.', static::basename($doc->filename) );
@@ -56,17 +60,8 @@ class Project {
 		}
 
 		if ( ! empty($name = $doc->Prototype) ) {
-			$root = static::root($doc->filename);
-			if ( isset( $root->prototypes[$name] ) ) {
-				$root->prototypes[$name]->apply_to($doc);
-			} else {
-				throw new Error(
-					__('%s: No %s type found at %s', 'postmark'), $doc->filename, $name, "$root->pdir/$name.{yml,twig,md}"
-				);
-			}
+			static::prototype($doc->filename, $name)->apply_to($doc);
 		}
-
-		if ( $doc->is_template ) return;
 
 		do_action('postmark_load', $doc);
 	}
@@ -132,7 +127,7 @@ class Project {
 		return $files;
 	}
 
-	static function parent_doc($filename) {
+	static function parent_of($filename) {
 		do {
 			$dir = dirname($filename);
 			if ( static::basename($filename) == 'index.md' ) {
@@ -141,7 +136,7 @@ class Project {
 			}
 			$filename = $dir == '.' ? 'index.md' : "$dir/index.md";
 		} while ( ! file_exists($filename) || ! filesize($filename) );
-		return static::doc($filename);
+		return $filename;
 	}
 
 	static function realpath($path) {
@@ -163,7 +158,7 @@ class Project {
 		);
 	}
 
-	protected static function basename( $path, $suffix = '' ) {
+	static function basename( $path, $suffix = '' ) {
 		# locale-independent basename
 		return urldecode( \basename( str_replace( array( '%2F', '%5C' ), '/', urlencode( $path ) ), $suffix ) );
 	}
