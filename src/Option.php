@@ -18,7 +18,7 @@ class Option {
 			do_action('postmark_before_sync_option', $doc, $keypath);
 			static::patch($keypath, $doc->html());
 			do_action('postmark_after_sync_option', $doc, $keypath);
-			return $doc->ID;
+			return implode('/', array_map('urlencode', $keypath));
 		} else return $doc->filenameError(
 			'non_option_guid',
 			__( '%s: GUID %s is not a valid x-option-value URN', 'postmark'), $doc->ID
