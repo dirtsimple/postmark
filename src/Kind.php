@@ -44,10 +44,20 @@ class KindImpl extends Kind {
 		$this->etag_autosave = $conf->etag_autosave;
 	}
 
-	function import($doc) {
-		if ( ! is_callable( $handler = $this->importer ) ) throw new Error(
+	function getImporter($doc) {
+		$handler = $this->importer;
+		if ( empty($handler) ) throw new Error(
 			__('%s: No import handler defined for resource kind %s', 'postmark'), $doc->filename, $this->name
 		);
+		if ( ! is_callable($handler) ) throw new Error(
+			__('%s: Invalid import handler %s defined for resource kind %s', 'postmark'),
+			$doc->filename, json_dump($handler), $this->name
+		);
+		return $handler;
+	}
+
+	function import($doc) {
+		$handler = $this->getImporter($doc);
 
 		$id = yield $handler($doc);
 		if ( is_wp_error($id) ) return;

@@ -26,6 +26,8 @@ class Document extends MarkdownFile {
 			}
 
 			$kind = $this->setdefault('Resource-Kind', '@wp-post');
+			$this->db->kind($kind)->getImporter($this);  # validate kind is importable
+
 			do_action("postmark load $kind", $this);
 
 			$this->_kind = $kind;
