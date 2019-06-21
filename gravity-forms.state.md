@@ -8,11 +8,11 @@ This state module requires the Gravity Forms plugin to be installed and activate
 
 Once this is done, and `imposer apply` has been run at least once, future postmark imports will sync certain markdown files as Gravity Forms instead of posts.  These files must have a `Resource-Kind` of `@gform`, either specified directly in the file, or by its prototype.
 
-If you set the resource kind via a prototype (e.g. `_prototypes/gform.type.yml`), the you can simply save an exported form's JSON to a file that ends with `.gform.md`, e.g.:
+If you set the resource kind via a prototype (e.g. `_postmark/gform.type.yml`), the you can simply save an exported form's JSON to a file that ends with `.gform.md`, e.g.:
 
 ~~~sh
 # Create a prototype for files ending in `.gform.md`
-$ echo 'Resource-Kind: @gform' >content/_prototypes/gform.type.yml
+$ echo 'Resource-Kind: @gform' >content/_postmark/gform.type.yml
 
 # Export form 27 as a .gform.md, using the Gravity Forms CLI
 $ wp gf form get 27 >content/example.gform.md
