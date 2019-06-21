@@ -13,6 +13,16 @@ use WP_Error;
 
 class PostImporter {
 
+	static function register_kind($kind) {
+		global $wpdb;
+		$filter = PostModel::posttype_exclusion_filter();
+		$kind->setImporter(__CLASS__ . "::sync_doc");
+		$kind->setEtagQuery(
+			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
+			 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
+		);
+	}
+
 	static function sync_doc($doc) {
 		$self = new PostImporter($doc);
 		return $self->sync();

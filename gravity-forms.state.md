@@ -4,22 +4,23 @@ This [imposer](https://github.com/dirtsimple/imposer#readme) state module extend
 
 ## Installation, Use, & Requirements
 
-This state module requires the Gravity Forms plugin to be installed and activated, and the Gravity Forms CLI to be installed, along with Postmark and Imposer.  It's bundled with Postmark, so the only thing you need to do to activate it is `require "dirtsimple/postmark/gravity-forms"` from inside a `shell` block in your `imposer-project.md` (or another state module that's loaded by the imposer-project file).
+This state module requires the Gravity Forms plugin to be installed and activated, and the Gravity Forms CLI to be installed, along with Postmark and Imposer.  Since this state module is bundled with Postmark, the only thing you need to do to activate it is `require "dirtsimple/postmark/gravity-forms"` from inside a `shell` block in your `imposer-project.md` (or another state module that's loaded by it).
 
-Once this is done, and `imposer apply` has been run at least once, future postmark imports will sync certain markdown files as Gravity Forms instead of posts.
+Once this is done, and `imposer apply` has been run at least once, future postmark imports will sync certain markdown files as Gravity Forms instead of posts.  These files must have a `Resource-Kind` of `@gform`, either specified directly in the file, or by its prototype.
 
-There are two ways to designate a file as a form for this extension to process:
-
-* You can save a form's JSON in a file whose name ends with `.gform.md`
-* You can embed the encoded form as YAML in the `Gravity-Form` front-matter field of a normal .md file
-
-The first way is generally easier, as it allows you to export or update forms as easily as:
+If you set the resource kind via a prototype (e.g. `_prototypes/gform.type.yml`), the you can simply save an exported form's JSON to a file that ends with `.gform.md`, e.g.:
 
 ~~~sh
-$ wp gf form get 27 >content/example.gform.md   # Export form 27 as a .gform.md file
+# Create a prototype for files ending in `.gform.md`
+$ echo 'Resource-Kind: @gform' >content/_prototypes/gform.type.yml
+
+# Export form 27 as a .gform.md, using the Gravity Forms CLI
+$ wp gf form get 27 >content/example.gform.md
 ~~~
 
 The resulting file can then be put under revision control for deployment.
+
+(Alternately, you can manually encode the form as YAML in the `Gravity-Form` field of a normal .md file with a `@gform` resource kind, but this isn't likely to be very useful.)
 
 ## Implementation
 
@@ -30,10 +31,12 @@ Because Gravity forms are identified only by a database-specific number, this mo
 Doing this ensures that exported forms won't be duplicated upon their first import, since the imported file will have a matching GUID, causing it to overwrite the existing form rather than creating a new one.
 
 ```php cli
+use dirtsimple\Postmark\Option;
+
 add_action('gform_form_post_get_meta', function ($form) {
 	if ( ! $gform_id = rgar($form, 'id') ) return $form;
-	if ( ! $guid = dirtsimple\Postmark\Option::pluck(['gform_postmark_guid', $gform_id]) ) {
-		dirtsimple\Postmark\Option::patch(
+	if ( ! $guid = Option::pluck(['gform_postmark_guid', $gform_id]) ) {
+		Option::patch(
 			['gform_postmark_guid', $gform_id], $guid = "urn:uuid:" . wp_generate_uuid4(), 'no'
 		);
 	}
@@ -42,51 +45,41 @@ add_action('gform_form_post_get_meta', function ($form) {
 });
 ```
 
-Postmark also needs to be able to look up forms by **etag**: a special hash value associated with markdown documents' contents.  Another option (`gform_postmark_etag`) is used to map from Gravity form IDs to their last synced etag.  When postmark begins a sync process, this filter hook will flip the option so that it's mapping from etags to identifiers (instead of the other way around), and returns database IDs of the form `gform:NNN`.
-
-```php cli
-add_filter('postmark_etag_cache', function ($cache) {
-	return $cache + array_map(
-		function($id) { return "gform:$id"; },
-		array_flip( get_option( 'gform_postmark_etag', [] ) )
-	);
-});
-```
-
-(Initially, this option will be empty, but later on during the [form sync process](#importing-a-form), both of the options will be updated for each form that's created or updated.)
+Postmark also needs to be able to look up forms by **etag**: a special hash value associated with markdown documents' contents.  Another option (`gform_postmark_etag`) is used to map from Gravity form IDs to their last synced etag.  (Initially, this option will be empty, but later on during the [form sync process](#importing-a-form), both of the options will be updated for each form that's created or updated.)
 
 When forms are deleted, however, the form's guid and etag must both be removed from the relevant options:
 
 ```php tweak
 add_action('gform_after_delete_form', function($gform_id){
-	$delete = function ($opt) use ($gform_id) {
-		unset( $opt[$gform_id] );
-		return $opt;
-	};
-	dirtsimple\Postmark\Option::edit( 'gform_postmark_guid', $delete, [], 'no' );
-	dirtsimple\Postmark\Option::edit( 'gform_postmark_etag', $delete, [], 'no' );
+	foreach( array('gform_postmark_guid', 'gform_postmark_etag') as $opt ) {
+		$val = get_option($opt, []);
+		if ( array_key_exists($gform_id, $val) ) {
+			unset( $val[$gform_id] );
+			update_option($opt, $val, 'no');
+		}
+	}
 });
 ```
 
-### File Handling
+### Document Parsing
 
-Whenever Postmark loads a markdown file, we check to see if its filename ends in `.gform.md`.  If so, then we populate a `Gravity-Form` front-matter field from the file's body, stripping any `json` fence, if present, and deleting the body afterward.  In the case of a Gravity Forms export file, there is no front matter and no fencing, so the entire file contents are parsed as JSON.  If the JSON doesn't include a Postmark GUID, a default is set based on the filename.
+Whenever Postmark loads a markdown document whose resource kind is `@gform`, we populate a `Gravity-Form` front-matter field from the file's body, stripping any `json` fence, if present, and deleting the body afterward.  (In the case of a Gravity Forms export file, there is no front matter and no fencing, so the entire file contents are parsed as JSON, assuming the file is named for a prototype that sets the `Resource-Kind` to `@gform`.)
 
-If any markdown file processed by postmark contains a `Gravity-Form` field (regardless of filename), it's checked for a Postmark GUID (which is then removed), and the file's `ID` is defaulted to that GUID, if not explicitly set.  This ensures that the imported form metadata will be "clean" when imported to the database  (i.e., not including a possibly-conflicting GUID).  In particular, this means that manually adding an `ID:` field to a copy of an existing import file will safely duplicate the form under a new ID, even if the original import file contained an embedded ID.
+The document's `ID` is defaulted to the Postmark GUID found in the JSON, or a default is set based on the filename.  But if the JSON contains a Postmark GUID, it's always removed,  so that the imported form metadata will be "clean" when imported to the database  (i.e., not including a possibly-conflicting GUID).
+
+(In particular, this means that manually adding an `ID:` field to a copy of an existing import file will safely duplicate the form under a new ID, even if the original import file contained an embedded ID.)
 
 ```php cli
-add_action('postmark_load', function($doc){
-	$name = explode('.', basename($doc->filename));
-	if ( array_pop($name) === 'md' && array_pop($name) === 'gform' && count($name) ) {
-		if ( ! $form = $doc->get('Gravity-Form') ) {
-			$form = json_decode($doc->unfence('json'), true);
-			if ( ! isset($form['id']) && isset($form[0]) && is_array($form[0]) ) $form = $form[0];
-			$doc['Gravity-Form'] = $form;
-			$doc->body = '';
-		}
-		# Set default GUID from filename, if needed
-		if ( ! array_key_exists('__postmark_guid__', $form) )
-			$doc['Gravity-Form']['__postmark_guid__'] = "x-gform-key:" . implode('.', $name);
+add_action('postmark load @gform', function($doc){
+	if ( ! $form = $doc->get('Gravity-Form') ) {
+		$form = json_decode($doc->unfence('json'), true);
+		if ( ! isset($form['id']) && isset($form[0]) && is_array($form[0]) ) $form = $form[0];
+		$doc['Gravity-Form'] = $form;
+		$doc->body = '';
+	}
+	# Set default GUID from filename, if needed
+	if ( ! array_key_exists('__postmark_guid__', $form) ) {
+		$doc['Gravity-Form']['__postmark_guid__'] = "x-gform-key:" . basename($doc->filename);
 	}
 	if ( $guid = rgar($doc->get('Gravity-Form'), '__postmark_guid__') ) {
 		# If there's no manually assigned ID, default it from the embedded GUID
@@ -99,36 +92,31 @@ add_action('postmark_load', function($doc){
 
 ### Importing A Form
 
-If Postmark doesn't have an etag on file for a document, it will need to actually sync it.  We filter the sync handler for documents with a `Gravity-Form` field, so that our custom handler will be used.
+If Postmark doesn't have an etag on file for a document, it will need to actually sync it.  To do this, it needs to know how to import the `@gform` resource kind, so we register an import handler for it, and request automatic ID-to-etag mapping via the `gform_postmark_etag` option:
 
 ```php cli
-# If a document has a `Gravity-Form` field, use our handler instead of the default
-add_filter('postmark_sync_handler', function($handler, $doc) {
-    return $doc->has('Gravity-Form') ? 'gform_postmark_sync' : $handler;
-}, 10, 2);
+add_action('postmark_resource_kinds', function($kinds) {
+	$kinds['@gform']->setImporter('gform_postmark_sync')->setEtagOption('gform_postmark_etag');
+});
 ```
 
-The custom handler looks up the document `ID` in the GUID list option.  If an existing form id is found, that form is updated using the GF CLI; if not, a new form is created.  Both the GUID and etag options are then updated to reflect the document `ID` and etag associated with the corresponding Gravity form.  The return value from a sync handler should be a `WP_Error`, or a unique database ID for the object synced.  (In this case, we use `gform:NNN`, as plain numeric values are reserved by Postmark for actual post objects.)
+The custom handler looks up the document `ID` in the GUID list option.  If an existing form id is found, that form is updated using the GF CLI; if not, a new form is created.  Both the GUID and etag options are then updated to reflect the document `ID` and etag associated with the corresponding Gravity form.  The return value from a sync handler should be a `WP_Error`, or a unique ID for the object synced.
 
 ```php cli
 function gform_postmark_sync($doc) {
-	# Lookup existing form id for the document ID
+    # Index GUID => ID
 	$ids = array_flip( get_option( 'gform_postmark_guid', [] ) );
-	$gform_id = empty($ids[$doc->ID]) ? 0 : $ids[$doc->ID];
 
-	$form = $doc['Gravity-Form'];
-
-	if ( $gform_id ) {
+	if ( $gform_id = rgar($ids, $doc->ID, 0) ) {
 		$cli = new GF_CLI_Form();
-		$cli->update([$gform_id], ['form-json' => json_encode($form)]);
+		$cli->update([$gform_id], ['form-json' => json_encode($doc['Gravity-Form'])]);
 	} else {
-		$gform_id = GFAPI::add_form($form);
+		$gform_id = GFAPI::add_form($doc['Gravity-Form']);
 		if ( is_wp_error($gform_id) ) return $gform_id;
 	}
 
-	# Save the ID and etag for the form in options for future lookups
-	dirtsimple\Postmark\Option::patch( ['gform_postmark_guid', $gform_id], $doc->ID,     'no' );
-	dirtsimple\Postmark\Option::patch( ['gform_postmark_etag', $gform_id], $doc->etag(), 'no' );
-	return "gform:$gform_id";
+	# Save the GUID of the form for future lookups
+	Option::patch( ['gform_postmark_guid', $gform_id], $doc->ID, 'no' );
+	return $gform_id;
 }
 ```

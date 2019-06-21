@@ -15,9 +15,15 @@ class Database {
 	function __construct($cache=true, $allowCreate=true) {
 		# ensure Imposer and all hooks/tasks are initialized first
 		Imposer::instance();
-		$this->reindex($cache);
 		$this->allowCreate = $allowCreate;
 		$this->post_types = array_fill_keys(get_post_types(), 1);
+
+		$this->cache = array();
+		if ( $cache ) {
+			foreach ( static::kind() as $kind ) {
+				$this->cache = $this->cache + (array) $kind->etags();
+			}
+		}
 
 		$this->docs = new Bag();
 
@@ -29,16 +35,27 @@ class Database {
 				return $guid;
 			}
 
-			$handler = Option::parseValueURL($guid) ? 'Option' : 'PostImporter';
-			$handler = "dirtsimple\\Postmark\\$handler::sync_doc";
-			$handler = apply_filters('postmark_sync_handler', $handler, $doc);
-
 			$ref = $pool[$filename] = new WatchedPromise;
-			$ref->call(function() use ($handler, $doc) {
-				$this->cache[$doc->etag()] = yield $handler($doc);
+			$ref->call(function() use ($doc) {
+				$kind = static::kind($doc->kind());
+				$this->cache[$doc->etag()] = yield $kind->import($doc);
 			});
 			return $ref;
 		});
+	}
+
+	static function kind($name = null) {
+		# Return a named kind, or all kinds
+		static $kinds, $conf;
+		if ( ! isset($conf) ) {
+			$conf  = new Pool( function($name) { return new Kind(); } );
+			$kinds = new Bag();
+			do_action("postmark_resource_kinds", $conf);
+		}
+		if ( ! isset($name) ) return array_map(
+			array(__CLASS__, 'kind'), array_keys( (array) $conf )
+		);
+		return $kinds->get($name) ?: $kinds[$name] = new KindImpl($name, $conf[$name]);
 	}
 
 	static function legacy_filter($types) {
@@ -47,23 +64,6 @@ class Database {
 
 	static function lookup_by_option_guid($guid) {
 		return Option::postFor($guid) ?: null;
-	}
-
-	protected function reindex($cache) {
-		global $wpdb;
-		$filter = PostModel::posttype_exclusion_filter();
-		if ( $cache ) $this->cache = apply_filters(
-			'postmark_etag_cache', array_flip(
-				get_option( 'postmark_option_cache', array() )
-			) + $this->_index(
-				"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
-				 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
-			)
-		); else $this->cache = array();
-	}
-
-	protected function _index($query) {
-		global $wpdb; return array_column( $wpdb->get_results($query, ARRAY_N), 0, 1 );
 	}
 
 	function doc($filename) {

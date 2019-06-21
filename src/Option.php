@@ -7,13 +7,17 @@ use WP_CLI;
 
 class Option {
 
+	static function register_kind($kind) {
+		$kind->setImporter(__CLASS__ . "::sync_doc");
+		$kind->setEtagOption('postmark_option_cache');
+	}
+
 	static function sync_doc($doc) {
 		# Option value? Update directly and cache in options
 		if ( $keypath = static::parseValueURL($doc->ID) ) {
 			do_action('postmark_before_sync_option', $doc, $keypath);
 			static::patch($keypath, $doc->html());
 			do_action('postmark_after_sync_option', $doc, $keypath);
-			static::patch(array('postmark_option_cache', $doc->ID), $doc->etag(), 'no');
 			return $doc->ID;
 		} else return $doc->filenameError(
 			'non_option_guid',
