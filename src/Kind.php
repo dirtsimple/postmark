@@ -47,10 +47,10 @@ class KindImpl extends Kind {
 	function getImporter($doc) {
 		$handler = $this->importer;
 		if ( empty($handler) ) throw new Error(
-			__('%s: No import handler defined for resource kind %s', 'postmark'), $doc->filename, $this->name
+			__('%s: No import handler defined for resource kind "%s"', 'postmark'), $doc->filename, $this->name
 		);
 		if ( ! is_callable($handler) ) throw new Error(
-			__('%s: Invalid import handler %s defined for resource kind %s', 'postmark'),
+			__('%s: Invalid import handler %s defined for resource kind "%s"', 'postmark'),
 			$doc->filename, json_dump($handler), $this->name
 		);
 		return $handler;
@@ -66,7 +66,7 @@ class KindImpl extends Kind {
 			Option::patch( array($this->etag_arg, $id), $doc->etag(), 'no' );
 		}
 
-		if ( $this->name !== '@wp-post' ) yield "$this->name:$id";
+		if ( $this->name !== 'wp-post' && substr($id, 0, 1) !== '@' ) yield "@$this->name:id:$id";
 	}
 
 	function etags() {
@@ -74,9 +74,9 @@ class KindImpl extends Kind {
 		if ( $method = $this->etag_method ) {
 			$etags = $this->$method($this->etag_arg);
 		}
-		if ( $this->name !== '@wp-post' ) {
+		if ( $this->name !== 'wp-post' ) {
 			$name = $this->name;
-			foreach ( $etags as $k => &$v ) $v = "$name:$v";
+			foreach ( $etags as $k => &$v ) if ( substr($v, 0, 1) !== '@' ) $v = "@$name:id:$v";
 		}
 		return $etags;
 	}

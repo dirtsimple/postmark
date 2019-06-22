@@ -22,10 +22,10 @@ class Document extends MarkdownFile {
 			Project::load($this);
 
 			if ( ! $this->has('Resource-Kind') && $this->has('ID')) {
-				if ( Option::parseValueURL($this->ID) ) $this['Resource-Kind'] = '@wp-option-html';
+				if ( Option::parseValueURL($this->ID) ) $this['Resource-Kind'] = 'wp-option-html';
 			}
 
-			$kind = $this->setdefault('Resource-Kind', '@wp-post');
+			$kind = $this->setdefault('Resource-Kind', 'wp-post');
 			$this->db->kind($kind)->getImporter($this);  # validate kind is importable
 
 			do_action("postmark load $kind", $this);
