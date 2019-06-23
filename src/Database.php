@@ -67,8 +67,7 @@ class Database {
 	}
 
 	function doc($filename) {
-		$filename = Project::realpath($filename);
-		return $this->docs->get($filename) ?: $this->docs[$filename] = new Document($filename, $this);
+		return Document::fetch($this->docs, $this, $filename);
 	}
 
 	function sync($filename, $callback=null) {

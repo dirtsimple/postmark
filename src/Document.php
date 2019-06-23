@@ -9,7 +9,15 @@ class Document extends MarkdownFile {
 
 	protected $loaded=false, $_cache_key, $db, $_kind=null, $filename;
 
-	function __construct($filename, $db) {
+	static function fetch(\ArrayAccess $cache, Database $db, $filename) {
+		# Avoid repeated calls to realpath
+		if ( $cache->offsetExists($filename) ) return $cache[$filename];
+		$realpath = Project::realpath($filename);
+		if ( $cache->offsetExists($realpath) ) return $cache[$realpath];
+		return $cache[$filename] = $cache[$realpath] = new Document($realpath, $db);
+	}
+
+	function __construct($filename, Database $db) {
 		$this->filename = $filename;
 		$this->db = $db;
 	}
