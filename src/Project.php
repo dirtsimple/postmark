@@ -53,14 +53,14 @@ class Project {
 
 	static function load($doc) {
 		if ( ! $doc->has('Prototype') ) {
-			$parts = explode( '.', static::basename($doc->filename) );
+			$parts = explode( '.', static::basename($doc->filename()) );
 			array_pop($parts);   # remove .md
 			array_shift($parts); # remove base name
 			if ( count($parts) ) $doc->Prototype = array_pop($parts);
 		}
 
 		if ( ! empty($name = $doc->Prototype) ) {
-			static::prototype($doc->filename, $name)->apply_to($doc);
+			static::prototype($doc->filename(), $name)->apply_to($doc);
 		}
 
 		do_action('postmark_load', $doc);
@@ -68,7 +68,7 @@ class Project {
 
 	static function injectGUID($file, $guid) {
 		list ($head, $tail) = explode("\n", file_get_contents($file), 2);
-		if ( ! preg_match("{^(?:---)\r*}", $head) ) {
+		if ( ! preg_match("{^(?:---)\r*$}", $head) ) {
 			$tail = "---\n$head\n$tail";
 			$head = "---";
 		}

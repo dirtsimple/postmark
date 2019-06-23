@@ -80,7 +80,7 @@ class Database {
 			return $callback(false, $ret = $this->cache[$etag]);
 		}
 
-		$res = $this->results[$doc->filename];
+		$res = $this->results[$doc->filename()];
 		$ret = Promise::now($res, $sentinel = (object) array());
 		if ( $ret !== $sentinel ) return $callback(true, $ret);
 		return $res->then( function($ret) use ($callback) {
@@ -98,7 +98,7 @@ class Database {
 
 	protected function newID($doc) {
 		$guid = 'urn:uuid:' . wp_generate_uuid4();
-		return Project::injectGUID($doc->filename, $guid) ? $doc->load(true)->ID : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
+		return Project::injectGUID($doc->filename(), $guid) ? $doc->load(true)->ID : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
 	static function export($post_spec, $dir='') {

@@ -47,11 +47,11 @@ class KindImpl extends Kind {
 	function getImporter($doc) {
 		$handler = $this->importer;
 		if ( empty($handler) ) throw new Error(
-			__('%s: No import handler defined for resource kind "%s"', 'postmark'), $doc->filename, $this->name
+			__('%s: No import handler defined for resource kind "%s"', 'postmark'), $doc->filename(), $this->name
 		);
 		if ( ! is_callable($handler) ) throw new Error(
 			__('%s: Invalid import handler %s defined for resource kind "%s"', 'postmark'),
-			$doc->filename, json_dump($handler), $this->name
+			$doc->filename(), json_dump($handler), $this->name
 		);
 		return $handler;
 	}

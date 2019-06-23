@@ -7,8 +7,7 @@ class Document extends MarkdownFile {
 
 	/* Lazy-loading Markdown file that knows how to compute key and get slugs */
 
-	protected $loaded=false, $_cache_key, $db, $_kind=null;
-	public $filename;
+	protected $loaded=false, $_cache_key, $db, $_kind=null, $filename;
 
 	function __construct($filename, $db) {
 		$this->filename = $filename;
@@ -47,6 +46,8 @@ class Document extends MarkdownFile {
 	function sync($callback=null) {
 		return $this->db->sync($this->filename, $callback);
 	}
+
+	function filename() { return $this->filename; }
 
 	function slug() {
 		return Project::slug($this->filename);
