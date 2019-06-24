@@ -7,10 +7,12 @@ class Project {
 
 	protected static $docs=array();
 
-	protected $root, $base, $loader, $pdir, $prototypes=array();
+	protected $prefix_len=0, $base, $loader, $pdir, $prototypes=array();
 
-	function __construct($root, $base) {
-		$this->root = $root;
+	protected function __construct($base) {
+		$prefix = dirname($base);
+		if ($prefix !== $base) $this->prefix_len = strlen($prefix);
+
 		$this->base = $base;
 		$this->loader = new Loader\ArrayLoader();
 
@@ -40,13 +42,13 @@ class Project {
 		}
 	}
 
-	static function prototype($filename, $type) {
-		$root = Project::root($filename);
-		if ( isset( $root->prototypes[$type] ) ) {
-			return $root->prototypes[$type];
+	function prototype($type, $filename='') {
+		if ( isset( $this->prototypes[$type] ) ) {
+			return $this->prototypes[$type];
 		} else {
+			$filename = empty($filename) ? '' : "$filename: ";
 			throw new Error(
-				__('%s: No %s type found at %s', 'postmark'), $filename, $type, "$root->pdir/$type.type.{yml,twig,md}"
+				__('%sNo %s type found at %s', 'postmark'), $filename, $type, "$this->pdir/$type.type.{yml,twig,md}"
 			);
 		}
 	}
@@ -79,16 +81,21 @@ class Project {
 	static function root($file) {
 		static $roots = array();
 		return $roots[$dir = dirname($file)] = (
-			isset($roots[$dir])        ? $roots[$dir]                    : (
-			( $dir == $file )          ? new static($dir)                : (
-			static::is_project($dir)   ? new static(dirname($dir), $dir) : (
+			isset($roots[$dir])        ? $roots[$dir]     : (
+			( $dir == $file )          ? new static($dir) : (
+			static::is_project($dir)   ? new static($dir) : (
 			static::root($dir))))
 		);
 	}
 
-	static function cache_key($file) {
-		$root = static::root($file);
-		return substr($file, strlen($root->root)+1) . ':' . filesize($file) ;
+	function has_child($path) {
+		return substr($path, 0, $this->prefix_len) != substr($this->base, 0, $this->prefix_len);
+	}
+
+	function path_to($path) {
+		if ( $this->has_child($path) || $this->has_child($path = static::realpath($path)) ) {
+			return substr($path, $this->prefix_len);
+		}
 	}
 
 	static function find($pat, $f=0) {

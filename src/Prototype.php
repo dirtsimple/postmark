@@ -41,7 +41,7 @@ class Prototype {
 			$type = MarkdownFile::fromFile($filename);
 
 			if ( $super = $type->get('Prototype') ) {
-				$type->inherit( Project::prototype($filename, $super)->meta() );
+				$type->inherit( $this->root->prototype($super, $filename)->meta() );
 			}
 
 			$this->mdfile->inherit( $type->meta() );

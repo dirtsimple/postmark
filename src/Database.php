@@ -79,7 +79,7 @@ class Database {
 			return $callback(false, $ret = $this->cache[$etag]);
 		}
 
-		$res = $this->results[$doc->filename()];
+		$res = $this->results[$doc->realpath()];
 		$ret = Promise::now($res, $sentinel = (object) array());
 		if ( $ret !== $sentinel ) return $callback(true, $ret);
 		return $res->then( function($ret) use ($callback) {

@@ -5,17 +5,20 @@ use WP_Error;
 
 class Document extends MarkdownFile {
 
-	protected $loaded=false, $_cache_key, $db, $_kind=null, $slug, $project, $filename;
+	protected $loaded=false, $_cache_key, $db, $_kind=null, $slug, $project, $realpath, $relative, $filename;
 
 	static function fetch(\ArrayAccess $cache, Database $db, $filename) {
 		# Avoid repeated calls to realpath
 		if ( $cache->offsetExists($filename) ) return $cache[$filename];
 		$realpath = Project::realpath($filename);
 		if ( $cache->offsetExists($realpath) ) return $cache[$realpath];
-		return $cache[$filename] = $cache[$realpath] = new Document($realpath, $db);
+		return $cache[$filename] = $cache[$realpath] = new Document($realpath, $filename, $db);
 	}
 
-	function __construct($filename, Database $db) {
+	function __construct($realpath, $filename, Database $db) {
+		$this->project  = Project::root($realpath);
+		$this->relative = $this->project->path_to($realpath);
+		$this->realpath = $realpath;
 		$this->filename = $filename;
 		$this->db = $db;
 	}
@@ -37,13 +40,13 @@ class Document extends MarkdownFile {
 
 		$this->slug = implode('.', $parts);
 		if ( $this->slug === 'index' ) {
-			$slug = dirname($this->filename);
+			$slug = dirname($this->realpath);
 			$this->slug = ( $slug == dirname($slug) ) ? null : Project::basename($slug, '.md');
 		}
 
 		# Apply prototype
 		if ( ! empty($proto = $this->Prototype) ) {
-			Project::prototype($this->filename, $proto)->apply_to($this);
+			$this->project->prototype($proto, $this->filename)->apply_to($this);
 		}
 
 		do_action('postmark_load', $this);   # XXX deprecated
@@ -59,7 +62,7 @@ class Document extends MarkdownFile {
 		do_action("postmark load $_kind", $this);
 
 		$this->_kind = $_kind;
-		$this->_cache_key = Project::cache_key($this->filename) . ":" . md5($this->dump());
+		$this->_cache_key = $this->relative . ":" . filesize($this->realpath) . ":" . md5($this->dump());
 
 		return $this;
 	}
@@ -74,9 +77,10 @@ class Document extends MarkdownFile {
 	function slug() { return $this->load()->slug; }
 
 	function filename() { return $this->filename; }
+	function realpath() { return $this->realpath; }
 
 	function sync($callback=null) {
-		return $this->db->sync($this->filename, $callback);
+		return $this->db->sync($this->realpath, $callback);
 	}
 
 	function filenameError($code, $message, ...$args) {
@@ -84,7 +88,7 @@ class Document extends MarkdownFile {
 	}
 
 	function parent() {
-		$filename = Project::parent_of($this->filename);
+		$filename = Project::parent_of($this->realpath);
 		return isset($filename) ? $this->db->doc($filename) : null;
 	}
 }
