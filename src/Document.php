@@ -5,9 +5,7 @@ use WP_Error;
 
 class Document extends MarkdownFile {
 
-	/* Lazy-loading Markdown file that knows how to compute key and get slugs */
-
-	protected $loaded=false, $_cache_key, $db, $_kind=null, $filename;
+	protected $loaded=false, $_cache_key, $db, $_kind=null, $slug, $project, $filename;
 
 	static function fetch(\ArrayAccess $cache, Database $db, $filename) {
 		# Avoid repeated calls to realpath
@@ -23,23 +21,46 @@ class Document extends MarkdownFile {
 	}
 
 	function load($reload=false) {
-		if ( $reload || ! $this->loaded ) {
-			$this->loadFile( $this->filename );
-			$this->loaded = true;
-			Project::load($this);
+		if ( ! $reload && $this->loaded ) return $this;
 
-			if ( ! $this->has('Resource-Kind') && $this->has('ID')) {
-				if ( Option::parseValueURL($this->ID) ) $this['Resource-Kind'] = 'wp-option-html';
-			}
+		$this->loadFile( $this->filename );
+		$this->loaded = true;
 
-			$kind = $this->setdefault('Resource-Kind', 'wp-post');
-			$this->db->kind($kind)->getImporter($this);  # validate kind is importable
+		# Compute slug
+		$parts = explode( '.', Project::basename($this->filename) );
+		array_pop($parts);   # remove .md
 
-			do_action("postmark load $kind", $this);
-
-			$this->_kind = $kind;
-			$this->_cache_key = Project::cache_key($this->filename) . ":" . md5($this->dump());
+		if ( ! $this->has('Prototype') && count($parts) > 1 ) {
+			# move "extension" to prototype
+			$this->Prototype = array_pop($parts);
 		}
+
+		$this->slug = implode('.', $parts);
+		if ( $this->slug === 'index' ) {
+			$slug = dirname($this->filename);
+			$this->slug = ( $slug == dirname($slug) ) ? null : Project::basename($slug, '.md');
+		}
+
+		# Apply prototype
+		if ( ! empty($proto = $this->Prototype) ) {
+			Project::prototype($this->filename, $proto)->apply_to($this);
+		}
+
+		do_action('postmark_load', $this);   # XXX deprecated
+
+		# Determine resource _kind
+		if ( ! $this->has('Resource-Kind') && $this->has('ID')) {
+			if ( Option::parseValueURL($this->ID) ) $this['Resource-Kind'] = 'wp-option-html';
+		}
+
+		$_kind = $this->setdefault('Resource-Kind', 'wp-post');
+		$this->db->kind($_kind)->getImporter($this);  # validate _kind is importable
+
+		do_action("postmark load $_kind", $this);
+
+		$this->_kind = $_kind;
+		$this->_cache_key = Project::cache_key($this->filename) . ":" . md5($this->dump());
+
 		return $this;
 	}
 
@@ -50,15 +71,12 @@ class Document extends MarkdownFile {
 
 	function etag() { return $this->load()->_cache_key; }
 	function kind() { return $this->load()->_kind; }
-
-	function sync($callback=null) {
-		return $this->db->sync($this->filename, $callback);
-	}
+	function slug() { return $this->load()->slug; }
 
 	function filename() { return $this->filename; }
 
-	function slug() {
-		return Project::slug($this->filename);
+	function sync($callback=null) {
+		return $this->db->sync($this->filename, $callback);
 	}
 
 	function filenameError($code, $message, ...$args) {
