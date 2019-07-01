@@ -89,7 +89,7 @@ class Project {
 	}
 
 	function has_child($path) {
-		return substr($path, 0, $this->prefix_len) != substr($this->base, 0, $this->prefix_len);
+		return substr($path, 0, $this->prefix_len) === substr($this->base, 0, $this->prefix_len);
 	}
 
 	function path_to($path) {
