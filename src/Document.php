@@ -1,6 +1,7 @@
 <?php
 namespace dirtsimple\Postmark;
 
+use Mustangostang\Spyc;
 use WP_Error;
 
 class Document extends MarkdownFile {
@@ -28,6 +29,11 @@ class Document extends MarkdownFile {
 
 		$this->loadFile( $this->filename );
 		$this->loaded = true;
+
+		# Load export file, if any
+		if ( file_exists( $metafile = $this->metafile() ) ) {
+			$this->inherit( Spyc::YAMLLoad( $metafile ) );
+		}
 
 		# Compute slug
 		$parts = explode( '.', Project::basename($this->filename) );
@@ -77,6 +83,7 @@ class Document extends MarkdownFile {
 	function slug() { return $this->load()->slug; }
 
 	function filename() { return $this->filename; }
+	function metafile() { return substr_replace($this->filename, '.pmx.yml', strrpos($this->filename , '.')); }
 	function realpath() { return $this->realpath; }
 
 	function sync($callback=null) {
