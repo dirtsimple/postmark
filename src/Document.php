@@ -62,7 +62,7 @@ class Document extends MarkdownFile {
 		do_action("postmark load $_kind", $this);
 
 		$this->_kind = $_kind;
-		$this->_cache_key = $this->relative . ":" . filesize($this->realpath) . ":" . md5($this->dump());
+		$this->_cache_key = $this->relative . ":" . md5($this->dump());
 
 		return $this;
 	}
