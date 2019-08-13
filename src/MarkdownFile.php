@@ -48,6 +48,11 @@ class MarkdownFile extends Bag {
 		return isset($filename) ? Project::writeFile($filename, $data) : $data;
 	}
 
+	function saveMeta($filename=null) {
+		$data = Spyc::YAMLDump( $this->items(), 2, 0, true );
+		return isset($filename) ? Project::writeFile($filename, $data) : $data;
+	}
+
 	function saveAs($filename) {
 		return $this->dump($filename);
 	}
