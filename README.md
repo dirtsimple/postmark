@@ -5,7 +5,7 @@ Static site generators let you use a revision-controlled tree of markdown files 
 
 So why not **combine** the two?
 
-Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (or entire tree of them) and creates or updates posts and pages in Wordpress.  Some key features include:
+Postmark is a [wp-cli](https://wp-cli.org/) command that takes a markdown file (or entire tree of them) and creates or updates posts, pages, and [other database objects](#postmark_resource_kinds) in Wordpress.  Some key features include:
 
 * No webserver configuration changes required: files can be synced from any directory on the server, and don't need to be writable or even readable by the web server.  (They do need to be readable by the user running the wp-cli command, though!)
 * Files are synced using a GUID to identify the post or page in the DB, so the same files can be applied to multiple wordpress sites (e.g. dev/staging/prod, or common pages across a brand's sites), and moving or renaming a file changes its parent or slug in WP, instead of creating a new page or post.
@@ -46,7 +46,9 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects](#document-objects)
+    + [postmark load *resource-kind*](#postmark-load-resource-kind)
     + [postmark_load](#postmark_load)
+    + [postmark_resource_kinds](#postmark_resource_kinds)
   * [Sync Actions for Posts](#sync-actions-for-posts)
     + [postmark_before_sync](#postmark_before_sync)
     + [postmark_metadata](#postmark_metadata)
@@ -445,11 +447,76 @@ Many filters and actions receive `dirtsimple\Postmark\Document` objects as a par
 * `$doc->get("field", $default=null)` returns the content of "field" from the frontmatter, or `$default` if it's not found
 * `$doc->select(['field'=>callback, ...])` calls each *callback* if the matching field exists, with the value of that field.  The return value is an array containing only keys for the fields that existed, with the values being the result of calling the callback.  If a callback isn't actually callable (e.g. `true`), the value is returned as-is in the output array.  If a callback is an associative array, it's processed recursively, so that e.g. `$doc->select(['EDD'=>['Price'=>$cb]])` will call `$cb` if and only if there is an `EDD` front matter field that's an associative array with a `Price` subfield.
 
-#### postmark_load
+#### postmark load *resource-kind*
 
-Whenever a document is loaded from disk, `do_action('postmark_load', Document $doc)` is run, to allow modification of the document (e.g. its`Post-Meta` field) before the document hash is calculated.  Any changes made to the document during this action will affect the hash calculation, so this is the ideal place to do simple syntax sugar or field remappings.
+Whenever a document is loaded from disk, `do_action("postmark load $kind", Document $doc)` is run, to allow modification of the document (e.g. its `Post-Meta`) before the document hash is calculated.  Any changes made to the document during this action will affect the hash calculation, so this is the ideal place to do simple syntax sugar or field remappings.
 
 If you're writing an extension that needs to do complex calculations or access the database, however, you should probably use a different hook, and add a versioning field (e.g. `MyPlugin-Version-Info`) during this action in order to ensure that documents get re-synced when your algorithms change.  Likewise, if your extension is altering how markdown formatting is done, you should add a versioning field to ensure that adding, removing, or updating your extension will force affected documents to re-sync.
+
+The default *resource-kind* is `wp-post`, meaning the document is going to be mapped to a Wordpress post, or, if the document has an `x-option-value` URL, the default resource kind is `wp-option-html`.  Other resource kinds can be registered using the [`postmark_resource_kinds` action](#postmark_resource_kinds), and assigned to documents via the `Resource-Kind:` front-matter field (either directly in the document, or via a prototype).
+
+#### postmark_load
+
+This hook is deprecated; please use `"postmark load wp-post"` or `"postmark load wp-option-html"` instead.
+
+#### postmark_resource_kinds
+
+Postmark isn’t just for importing posts and option values.  In principle, it can be used to import other built-in Wordpress objects (like users or categories) or specialty objects defined by plugins (like Gravity Forms, which are stored in a custom database table).
+
+To determine what kind of object is to be imported, Postmark looks at a document’s `Resource-Kind` field, which is `wp-post` by default (unless an `x-option-value:` URL is used for the `ID:`, in which case the default kind is `wp-option-html`).  But you can override these defaults using a document’s front-matter or via its prototype, so long as a plugin has registered an import handler for that resource kind.
+
+To add other resource kinds, an extension can register a hook for the `postmark_resource_kinds` action, which will receive an array-like object mapping kind names to "kind definition" objects.  Handlers registered for this action can then use configuration methods like `setImporter()` and `setEtagQuery()` to configure the kind.  For example, the code below registers an importer for a `my_plugin-item` resource kind:
+
+~~~php
+add_action('postmark_resource_types', function($kinds) {
+    $kinds['my_plugin-item']->setImporter('my_plugin_import_from_doc');
+});
+
+function my_plugin_import_from_doc($doc) {
+    # import $doc into database, saving $doc->etag() with it for caching purposes,
+    # then return a database ID or WP_Error
+}
+~~~
+
+Whenever a document has a `Resource-Kind:` of `my_plugin-item`, the `my_plugin_import_from_doc()` function will be called to perform the import, replacing Postmark’s builtin sync processing.
+
+In order to avoid needless database updates for unchanged files, Postmark computes an **etag** for a document's contents (which can be obtained via the `$doc->etag()` method).  Importers should save this value in the database upon import, and register a handler to retrieve those etags when a sync begins.
+
+For example, suppose we wanted to make an importer for Wordpress users, but didn't want to update user data when the import file(s) haven't changed.  We would need to register both an importer and an etag query, e.g.:
+
+~~~php
+function demo_user_importer($doc) {
+    # Create or update a user
+    if ( $user_id = email_exists($doc['Email']) ) {
+        $user_id = wp_update_user(...);  # ...with appropriate data
+    } else {
+        $user_id = wp_insert_user(...);  # ...with appropriate data
+    }
+
+    # Return error if insert or update failed
+    if ( is_wp_error($user_id) ) return $user_id;
+
+    # save $doc->etag() for caching
+    update_user_meta($user_id, '_postmark_cache', wp_slash($doc->etag()));
+    return $user_id;
+}
+
+add_action('postmark_resource_types', function($kinds) {
+    global $wpdb;
+    $kinds['wp-user']->setImporter('demo_user_importer');
+    $kinds['wp-user']->setEtagQuery(
+        "SELECT user_id, meta_value FROM $wpdb->usermeta WHERE meta_key='_postmark_cache'"
+    );
+});
+~~~
+
+In the above example, a `_postmark_cache` meta field is used to store the etag, with a simple SQL query to fetch it.  The query used must return the database ID and etag, *in that order*, as its first two fields for each item of the appropriate kind.
+
+Of course, in some cases, there is no way to directly query the database for the necessary information.  For example, Gravity Forms doesn't use Wordpress-style metadata for its forms, so the included [example extension for Gravity Forms](gravity-forms.state.md) uses `setEtagOption('gform_postmark_etag')` instead of `setEtagQuery()` to configure etag handling for the resource kind.  This tells postmark to automatically save and load etags from the specified option.
+
+The downside to this approach is that you will need to write code to remove deleted IDs from the option when the associated database item is deleted.  (This wasn't needed for the user example above, because deleting the user automatically deletes the associated meta field.)
+
+Finally, if neither a database query nor an option will work for your resource kind, you can use `setEtagCallback($callback)` to register a function that will be called with zero arguments and should return an array mapping from the database IDs of your resource kind to their associated etags.  (As with `setEtagQuery()`, your import function will be responsible for storing the etag in the database.)
 
 ### Sync Actions for Posts
 
@@ -554,6 +621,6 @@ This project is still in early development: tests are non-existent, and i18n of 
 
 * Some way to mark a split point for excerpt extraction (preferably with link targeting from the excerpt to the break on the target page)
 * Some way of handling images/attachments
-* Link translation from relative file links to absolute URLs'
+* Link translation from relative file links to absolute URLs
 
 See the full [roadmap/to-do here](https://github.com/dirtsimple/postmark/projects/1).
