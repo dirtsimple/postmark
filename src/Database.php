@@ -87,6 +87,11 @@ class Database {
 		});
 	}
 
+	function exportMeta($filename) {
+		$doc = $this->doc($filename);
+		return static::kind($doc->kind())->exportMeta($doc);
+	}
+
 	protected function guidForDoc($doc) {
 		return (
 			$doc->ID           ? $doc->ID : (
@@ -100,22 +105,28 @@ class Database {
 		return Project::injectGUID($doc->filename(), $guid) ? $doc->load(true)->ID : $doc->filenameError('save_failed', __( 'Could not save new ID to %s', 'postmark'));
 	}
 
-	static function export($post_spec, $dir='') {
-		$guid = null;
-		if ( ! is_numeric($id = $post_spec) ) {
-			if ( $id = Imposer::resource('@wp-post')->lookup($post_spec, 'guid') ) {
-				$guid = $post_spec;
+	static function export($key, $dir='') {
+		$kind = "@wp-post";
+		$keyType = "";
+		if ( substr($key, 0, 1) === '@' ) {
+			$parts = explode(':', $key, 3);
+			if ( count($parts) == 3 ) {
+				list($kind, $keyType, $key) = $parts;
 			} else {
-				$id = Imposer::resource('@wp-post')->lookup($post_spec);
-				if ( ! $id ) return false;
+				return new \WP_Error(
+					sprintf(
+						__( '"%s" is not a valid Imposer reference (should be in "@reskind:keyType:key" format)', 'postmark'),
+						$key
+					)
+				);
 			}
 		}
-		$post = get_post($id);
-		if (! $post ) return false;
-		if ( is_wp_error($post) ) return $post;
-
-		$ef = new ExportFile($post, $guid);
-		return $ef->exportTo($dir); # XXX ?: new WP_Error ...
+		if ( is_numeric($key) && ($keyType == 'id' || $keyType == '') ) {
+			$id = (int) $key;
+		} else {
+			$id = Imposer::resource($kind)->lookup($key, $keyType);
+		}
+		return isset($id) ? static::kind( substr($kind,1) )->export($id, $dir) : false;
 	}
 
 }

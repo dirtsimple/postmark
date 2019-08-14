@@ -16,7 +16,8 @@ class PostImporter {
 	static function register_kind($kind) {
 		global $wpdb;
 		$filter = PostModel::posttype_exclusion_filter();
-		$kind->setImporter(__CLASS__ . "::sync_doc");
+		$kind->setImporter(array(__CLASS__, "sync_doc"));
+		$kind->setExporter(array(PostExporter::class, "export_post"));
 		$kind->setEtagQuery(
 			"SELECT post_id, meta_value FROM $wpdb->postmeta, $wpdb->posts
 			 WHERE meta_key='_postmark_cache' AND post_id=ID AND $filter"
@@ -63,7 +64,7 @@ class PostImporter {
 	function checkPostType($pi) {
 		return (
 			!isset($pi['post_type']) || $this->postTypeOk($pi['post_type']) ||
-			$this->syncField( 'wp_error', new WP_Error('excluded_type', sprintf(__("Excluded or unregistered post_type '%s' in %s",'postmark'), $pi['post_type'], $this->doc->filename())))
+			$this->syncField( 'wp_error', $this->doc->filenameError('excluded_type', __("Excluded or unregistered post_type '%s'",'postmark'), $pi['post_type']) )
 		);
 	}
 

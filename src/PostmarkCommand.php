@@ -10,10 +10,10 @@ use dirtsimple\imposer\Imposer;
 class PostmarkCommand {
 
 	/**
-	 * Export one or more post(s)
+	 * Export one or more posts or other resources
 	 *
 	 * [<post-spec>...]
-	 * : One or more post IDs, GUIDs, URLs, or paths
+	 * : One or more post IDs, GUIDs, URLs, paths, or imposer references
 	 *
 	 * ## OPTIONS
 	 *
@@ -36,8 +36,8 @@ class PostmarkCommand {
 
 		if ( ! $args && ! $allow_none ) WP_CLI::error("No posts specified");
 
-		foreach ( $args as $post_spec ) {
-			$res = Database::export($post_spec, $dir);
+		foreach ( $args as $spec ) {
+			$res = Database::export($spec, $dir);
 			switch (true) {
 				case is_wp_error( $res ):
 					WP_CLI::error($res);
@@ -46,10 +46,55 @@ class PostmarkCommand {
 					WP_CLI::line($res ?: "");
 					break;
 				case (bool) $res:
-					WP_CLI::success("Exported post $post_spec to $res", "postmark");
+					WP_CLI::success("Exported $spec to $res", "postmark");
 					break;
 				default:
-					WP_CLI::warning("No post found for $post_spec");
+					WP_CLI::warning("No exportable resource found for $spec");
+			}
+		}
+	}
+
+	/**
+	 * Export updated state as YAML alongside existing .md files
+	 *
+	 * <file>...
+	 * : One or more paths to existing, already-synced .md files
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--porcelain]
+	 * : Output just the names of the generated .pmx.yml files; an empty line means the post-spec was not found.
+	 *
+	 * [--allow-none]
+	 * : Allow the list of post-specs to be empty (for scripting purposes).  Defaults to true if --porcelain is used.
+	 *
+	 */
+	function update( $args, $options ) {
+
+		$porcelain  = WP_CLI\Utils\get_flag_value($options, 'porcelain',   false);
+		$allow_none = WP_CLI\Utils\get_flag_value($options, 'allow-none', $porcelain);
+
+		$db = new Database(false, false);
+
+		if ( ! $args && ! $allow_none ) WP_CLI::error("No files specified");
+
+		foreach ( $args as $file ) {
+			if ( ! file_exists($file) || ! filesize($file) ) {
+				WP_CLI::error("$file is empty or does not exist");
+			}
+			$res = $db->exportMeta($file);
+			switch (true) {
+				case is_wp_error( $res ):
+					WP_CLI::error($res);
+					break;
+				case (bool) $porcelain:
+					WP_CLI::line($res ?: "");
+					break;
+				case (bool) $res:
+					WP_CLI::success("Exported $file updates to $res", "postmark");
+					break;
+				default:
+					WP_CLI::warning("No database resource found for $file (was it ever imported?)");
 			}
 		}
 	}

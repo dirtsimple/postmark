@@ -3,12 +3,18 @@ namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Pool;
+use dirtsimple\imposer\Imposer;
 
 class Kind {
-	protected $importer, $etag_method='', $etag_arg, $etag_autosave;
+	protected $importer, $exporter, $etag_method='', $etag_arg, $etag_autosave;
 
 	function setImporter($cb) {
 		$this->importer = $cb;
+		return $this;
+	}
+
+	function setExporter($cb) {
+		$this->exporter = $cb;
 		return $this;
 	}
 
@@ -38,6 +44,7 @@ class KindImpl extends Kind {
 
 	function __construct($name, $conf) {
 		$this->name          = $name;
+		$this->exporter      = $conf->exporter;
 		$this->importer      = $conf->importer;
 		$this->etag_method   = $conf->etag_method;
 		$this->etag_arg      = $conf->etag_arg;
@@ -56,6 +63,19 @@ class KindImpl extends Kind {
 		return $handler;
 	}
 
+	function getExporter($filename=null) {
+		$prefix = empty($filename) ? "" : "$filename: ";
+		$handler = $this->exporter;
+		if ( empty($handler) ) throw new Error(
+			__('%sexport handler defined for resource kind "%s"', 'postmark'), $prefix, $this->name
+		);
+		if ( ! is_callable($handler) ) throw new Error(
+			__('%sInvalid export handler %s defined for resource kind "%s"', 'postmark'),
+			$prefix, json_dump($handler), $this->name
+		);
+		return $handler;
+	}
+
 	function import($doc) {
 		$handler = $this->getImporter($doc);
 
@@ -67,6 +87,39 @@ class KindImpl extends Kind {
 		}
 
 		if ( $this->name !== 'wp-post' && substr($id, 0, 1) !== '@' ) yield "@$this->name:id:$id";
+	}
+
+	function exportMeta($doc) {
+		if ( ! $doc->has('ID') ) return $doc->filenameError("document has no ID; cannot save");
+		$id = Imposer::resource("@$this->name")->lookup($doc->ID, 'guid');
+		if ( ! isset($id) ) return false;
+
+		$handler = $this->getExporter($doc ? $doc->filename() : null);
+
+		$dir = dirname($doc->filename());
+		if ( $dir === '.' ) $dir = '';
+		$res = $handler($mdf = new MarkdownFile(), $id, $dir, $doc);
+		if (  $res === false || is_wp_error($res) ) return $res;
+
+		return $mdf->saveMeta( $fn = $doc->metafile() ) ? $fn : false;  # XXX new WP_Error
+	}
+
+	function export($id, $dir) {
+		$handler = $this->getExporter();
+		$res = $handler($mdf = new MarkdownFile(), $id, $dir, null);
+		if ( $res === false || is_wp_error($res) ) return $res;
+
+		$slug = ( $res && is_string($res) ) ? $res : $mdf->get('Slug');
+		if ( empty($slug) ) throw new Error(
+			__('export handler defined for resource kind "%s" did not supply a slug', 'postmark'), $this->name
+		);
+
+		$suff = '';
+		while (
+			file_exists($fn = "$dir$slug$suff.md") &&
+			( MarkdownFile::fromFile($fn)->ID != $mdf->ID )
+		) $suff--;
+		return $mdf->saveAs($fn) ? $fn : false;  # XXX new WP_Error
 	}
 
 	function etags() {

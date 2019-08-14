@@ -42,7 +42,8 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
   * [Inheritance and Template Re-Use](#inheritance-and-template-re-use)
 - [Change Detection](#change-detection)
 - [Imposer Integration](#imposer-integration)
-- [Exporting Posts and Pages](#exporting-posts-and-pages)
+- [Exporting Posts, Pages, and Other Resources](#exporting-posts-pages-and-other-resources)
+  * [Updating Exported Documents](#updating-exported-documents)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects](#document-objects)
@@ -94,7 +95,8 @@ To add an `ID`, Postmark must be able to write to both the file and the director
 
 The other commands Postmark provides are:
 
-* `wp export [<post-spec>...] [--dir=<output-dir>] [--porcelain] [--allow-none]` -- export the specified post(s) to markdown files.  (See [Exporting Posts and Pages](#exporting-posts-and-pages), below, for more info.)
+* `wp export [<spec>...] [--dir=<output-dir>] [--porcelain] [--allow-none]` -- export the specified post(s), pages, or other resources to markdown files.  (See [Exporting Posts, Pages, and Other Resources](#exporting-posts-pages-and-other-resources), below, for more info.)
+* `wp update [<file>...] [--porcelain] [--allow-none]` -- export selected state information from the database as `.pmx.yml` files next to the specified markdown documents, so that complex properties (such as page builder data) can be configured via the WordPress GUI, but still be revision-controlled as a text file.  (For more info, see the section below on [Updating Exported Documents](#updating-exported-documents).)
 * `wp postmark uuid [<file>...]` -- adds an `ID:` field to each *file* that doesn't already have one.  If no files are given,  it outputs a new UUID to standard output, suitable for use as the `ID:` of a new `.md` file.  (See [The ID: Field](#the-id-field) below, for more info.)
 
 ### File Format and Directory Layout
@@ -390,9 +392,9 @@ You can actually use this to distribute wp-cli packages containing markdown cont
 
 Note: the `postmark-module` and `postmark-content` functions don't perform an immediate sync when called.  Instead, they record the directory information in the imposer JSON specification object for later parsing during the task-running phase of `imposer apply`.  (See the imposer docs for more on how this works.)
 
-## Exporting Posts and Pages
+## Exporting Posts, Pages, and Other Resources
 
-To facilitate working with specialized post types, postmark provides a `wp postmark export` command, which creates markdown files in a specified directory, given a list of post IDs, GUIDs, or URLs.
+To facilitate working with specialized post types and other database resources, postmark provides a `wp postmark export` command, which creates markdown files in a specified directory, given a list of post IDs, GUIDs, URLs, or imposer references.  (e.g. `@my-appt-type:id:285`).  Any [resource kind](#postmark_resource_kinds) can be exported, as long as it has an export function registered.
 
 Each export file is given a name based on its slug (i.e., its `post_name`), possibly with a `-` and a number at the end.  If a file of the given name already exists, it's checked to see if it has the same GUID -- if so, the file is overwritten, otherwise the number is incremented and the next candidate is checked.
 
@@ -401,6 +403,18 @@ Each export file is given a name based on its slug (i.e., its `post_name`), poss
 Currently, post content is exported to markdown files *as-is*, without any attempt to translate HTML back to markdown.  In addition, a great many default-valued or empty fields are likely to be included in the YAML front matter.  For this reason, exported posts must be manually edited to resolve these issues.  Alternately, you can use the [export actions and filters](#export-actions-and-filters) to convert or clean up the content during the export process.  (e.g. to remove meta fields that should not be placed under revision control.)
 
 Also note: a post's parent, menu order, and MIME type are currently *not* included in its export file, since menu order and MIME type are used only for menu items and attachments, and postmark determines a post's parent (if any) using its directory location.  (The post's `_thumbnail_id` metadata is also excluded, since it references an integer ID that could vary between databases.)
+
+### Updating Exported Documents
+
+Many WordPress plugins and themes provide additional settings or data for posts and pages, that are difficult to manually specify via front matter.  For example, page builders, access restriction tools, page-specific theme options, etc.
+
+To aid in working with these features while still supporting revision control and dev/prod deployment, Postmark provides the `postmark update` command.  The command  exports updated post properties in a `.pmx.yml` file that lives next to the original markdown document, that are automatically merged into the post during sync.  A separate file is used to avoid losing comments, spacing, etc. in the main document's front matter, and any fields specified in the front matter override those in the `.pmx.yml` file.
+
+Currently, the `update` command simply exports *all* post metadata fields, which means you need to manually edit the `.yml` file to remove transient fields, or to add explicit deletions of removed metadata fields.  (Generally speaking, you would review the diffs from your revision control tool, then edit the file before committing it.)  Future versions will include a way to streamline this process.
+
+Note that in order to use this feature safely, you need to have a good understanding of what the various metadata fields supplied by your plugins *do*, so that you don't corrupt data at deployment time.
+
+For example, Elementor includes an `_elementor_css` field that should *always be deleted* at import time, in order to ensure correct CSS, while LifterLMS has an `_llms_num_reviews` field that should never be imported in order to not lose data.  Some plugins may also generate values based on other fields and normally only set them when a post is updated via the UI, not via the command line.  So take care before committing and deploying your `.pmx.yml` files.
 
 ## Actions and Filters
 
@@ -465,17 +479,28 @@ Postmark isn’t just for importing posts and option values.  In principle, it c
 
 To determine what kind of object is to be imported, Postmark looks at a document’s `Resource-Kind` field, which is `wp-post` by default (unless an `x-option-value:` URL is used for the `ID:`, in which case the default kind is `wp-option-html`).  But you can override these defaults using a document’s front-matter or via its prototype, so long as a plugin has registered an import handler for that resource kind.
 
-To add other resource kinds, an extension can register a hook for the `postmark_resource_kinds` action, which will receive an array-like object mapping kind names to "kind definition" objects.  Handlers registered for this action can then use configuration methods like `setImporter()` and `setEtagQuery()` to configure the kind.  For example, the code below registers an importer for a `my_plugin-item` resource kind:
+To add other resource kinds, an extension can register a hook for the `postmark_resource_kinds` action, which will receive an array-like object mapping kind names to "kind definition" objects.  Handlers registered for this action can then use configuration methods like `setImporter()`, `setExporter()`, and `setEtagQuery()` to configure the kind.  For example, the code below registers an importer and exporter for a `my_plugin-item` resource kind:
 
 ~~~php
 add_action('postmark_resource_types', function($kinds) {
-    $kinds['my_plugin-item']->setImporter('my_plugin_import_from_doc');
+    $kinds['my_plugin-item']->setImporter('my_plugin_import_item_from_doc');
+    $kinds['my_plugin-item']->setExporter('my_plugin_export_item_to_doc');
 });
 
-function my_plugin_import_from_doc($doc) {
+function my_plugin_import_item_from_doc($doc) {
     # import $doc into database, saving $doc->etag() with it for caching purposes,
     # then return a database ID or WP_Error
 }
+
+function my_plugin_export_item_to_doc($md, $id, $dir, $doc=null) {
+    # Export an database object whose ID is $id by setting values on the
+    # MarkdownFile in $md, returning a slug that will be used to generate
+    # the export filename.  Return `false` if $id isn't found, or a WP_Error
+    # to signal other error conditions.  If $doc is non-null, the export is
+    # an update to an existing document, and $doc can be used to trim or
+    # filter the output fields accordingly.
+}
+
 ~~~
 
 Whenever a document has a `Resource-Kind:` of `my_plugin-item`, the `my_plugin_import_from_doc()` function will be called to perform the import, replacing Postmark’s builtin sync processing.
