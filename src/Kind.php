@@ -4,6 +4,7 @@ namespace dirtsimple\Postmark;
 use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Pool;
 use dirtsimple\imposer\Imposer;
+use WP_CLI;
 
 class Kind {
 	protected $importer, $exporter, $etag_method='', $etag_arg, $etag_autosave;
@@ -99,9 +100,28 @@ class KindImpl extends Kind {
 		$dir = dirname($doc->filename());
 		if ( $dir === '.' ) $dir = '';
 		$res = $handler($mdf = new MarkdownFile(), $id, $dir, $doc);
-		if (  $res === false || is_wp_error($res) ) return $res;
+		if ( $res === false || is_wp_error($res) ) return $res;
 
+		# Verify that exported fields aren't being shadowed by the original markdown
+		$filename = $doc->filename();
+		$old = MarkdownFile::fromFile($filename)->meta();
+		foreach ( static::__overwrites($old, $mdf->meta()) as $path ) {
+			WP_CLI::warning(
+				"Exported $path field will be ignored by import unless removed from $filename"
+			);
+		}
 		return $mdf->saveMeta( $fn = $doc->metafile() ) ? $fn : false;  # XXX new WP_Error
+	}
+
+	static function __overwrites($old, $new, $path="") {
+		foreach ($new as $k => $v) {
+			if ( ! array_key_exists($k, $old) ) continue;
+			if ( is_array($v) and is_array($old[$k]) ) {
+				yield from static::__overwrites($old[$k], $v, "$path$k.");
+			} else {
+				yield "$path$k";
+			}
+		}
 	}
 
 	function export($id, $dir) {
