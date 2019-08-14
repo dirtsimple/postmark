@@ -65,7 +65,7 @@ class Project {
 	static function writeFile($filename, $text) {
 		$bak = "$filename.bak";
 		if ( ! file_exists($filename) || copy($filename, $bak) ) {
-			$r1 = file_put_contents($filename, $text, LOCK_EX);
+			$r1 = file_put_contents($filename, $text, LOCK_EX) !== false;
 			$r2 = ! file_exists($bak) || unlink($bak);
 			return $r1 && $r2;
 		}
