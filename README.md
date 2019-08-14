@@ -408,13 +408,35 @@ Also note: a post's parent, menu order, and MIME type are currently *not* includ
 
 Many WordPress plugins and themes provide additional settings or data for posts and pages, that are difficult to manually specify via front matter.  For example, page builders, access restriction tools, page-specific theme options, etc.
 
-To aid in working with these features while still supporting revision control and dev/prod deployment, Postmark provides the `postmark update` command.  The command  exports updated post properties in a `.pmx.yml` file that lives next to the original markdown document, that are automatically merged into the post during sync.  A separate file is used to avoid losing comments, spacing, etc. in the main document's front matter, and any fields specified in the front matter override those in the `.pmx.yml` file.
+To aid in working with these features while still supporting revision control and dev/prod deployment, Postmark provides the `postmark update` command.  The command exports updated post properties in a `.pmx.yml` file that lives next to the original markdown document, that are automatically merged into the post during sync.  A separate file is used to avoid losing comments, spacing, etc. in the main document's front matter, and any fields specified in the front matter override those in the `.pmx.yml` file.
 
-Currently, the `update` command simply exports *all* post metadata fields, which means you need to manually edit the `.yml` file to remove transient fields, or to add explicit deletions of removed metadata fields.  (Generally speaking, you would review the diffs from your revision control tool, then edit the file before committing it.)  Future versions will include a way to streamline this process.
+In order for post metadata fields to be exported, they must be listed in the document's `Export-Meta:` front matter (or inherited from a prototype).  For example, putting the following in a document's front matter would allow changes made using Elementor to be saved with `postmark update`, and then applied to the same or another database via `postmark sync` or `postmark tree`:
+
+```yaml
+Export-Meta:
+  # On `postmark update`, export primary Elementor fields
+  _elementor_edit_mode:
+  _elementor_template_type:
+  _elementor_version:
+  _elementor_data:
+
+Post-Meta:
+  # Forcibly delete the CSS cache on import, so it won't be stale
+  _elementor_css: null
+```
 
 Note that in order to use this feature safely, you need to have a good understanding of what the various metadata fields supplied by your plugins *do*, so that you don't corrupt data at deployment time.
 
 For example, Elementor includes an `_elementor_css` field that should *always be deleted* at import time, in order to ensure correct CSS, while LifterLMS has an `_llms_num_reviews` field that should never be imported in order to not lose data.  Some plugins may also generate values based on other fields and normally only set them when a post is updated via the UI, not via the command line.  So take care before committing and deploying your `.pmx.yml` files.
+
+An easy way to set up the `Export-Meta` field is to export an existing post or page, then edit the exported file and rename the `Post-Meta:` field to `Export-Meta:`.  Then, delete any fields that shouldn't be reset by importing, and the values from the fields you want to keep.  Once you have a good idea of the needed fields, you may wish to add them to a prototype so you aren't copying them to multiple files.  Individual documents can add any extra fields, or suppress the exporting of fields by setting the value to `false`.  For example, the following will prevent `_some_field` from being exported for the current document, even if its prototype listed it for export:
+
+```yaml
+Export-Meta:
+  _some_field: false
+```
+
+For every non-`false` entry in `Export-Meta`, there will be a corresponding entry in the `Post-Meta` of the `.pmx.yml` export file: either the value of that metadata field, or `null` if the post lacks that field.  This means that on import, such missing fields will be explicitly deleted, removing any dangling value in the database.  This is particularly important for use with plugins that decide things based on the presence or absence of a metadata field, not just its content.
 
 ## Actions and Filters
 
@@ -498,7 +520,7 @@ function my_plugin_export_item_to_doc($md, $id, $dir, $doc=null) {
     # the export filename.  Return `false` if $id isn't found, or a WP_Error
     # to signal other error conditions.  If $doc is non-null, the export is
     # an update to an existing document, and $doc can be used to trim or
-    # filter the output fields accordingly.
+    # filter the output fields accordingly (e.g. the way posts use `Export-Meta:`).
 }
 
 ~~~

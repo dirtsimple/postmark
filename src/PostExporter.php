@@ -81,8 +81,11 @@ class PostExporter {
 		if ( $meta->count() ) $mdf['Post-Meta'] = $meta->items();
 
 		if ( $doc ) {
-			$mdf->exchangeArray( $mdf->select(array('Post-Meta'=>true)) );
-			# XXX filter Post-Meta based on $doc's Export-Meta
+			$data = array();
+			foreach ( $doc->get('Export-Meta', array()) as $k => $v ) {
+				if ( $v !== false ) $data[$k] = $meta->get($k);
+			}
+			$mdf->exchangeArray( $data ? array('Post-Meta'=>$data) : array() );
 		} else {
 			do_action('postmark_export', $mdf, $post);
 			return apply_filters('postmark_export_slug', $mdf->Slug, $mdf, $post, $dir);
