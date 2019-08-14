@@ -3,6 +3,7 @@ namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Bag;
 use Mustangostang\Spyc;
+use Symfony\Component\Yaml\Yaml;
 
 class MarkdownFile extends Bag {
 	/* A MarkdownFile is a combination of front matter and body */
@@ -44,13 +45,17 @@ class MarkdownFile extends Bag {
 	function loadFile($file) { return $this->parse(file_get_contents($file)); }
 
 	function dump($filename=null) {
-		$data = sprintf("%s---\n%s", Spyc::YAMLDump( $this->items(), 2, 0 ), $this->body);
+		$data = sprintf("---\n%s---\n%s", $this->dumpMeta(), $this->body);
 		return isset($filename) ? Project::writeFile($filename, $data) : $data;
 	}
 
-	function saveMeta($filename=null) {
-		$data = Spyc::YAMLDump( $this->items(), 2, 0, true );
+	function dumpMeta($filename=null) {
+		$data = Yaml::dump( $this->items(), 4, 2, Yaml::DUMP_OBJECT_AS_MAP | Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK);
 		return isset($filename) ? Project::writeFile($filename, $data) : $data;
+	}
+
+	function saveMeta($filename) {
+		return $this->dumpMeta($filename);
 	}
 
 	function saveAs($filename) {
