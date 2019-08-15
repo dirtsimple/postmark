@@ -44,6 +44,7 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
 - [Imposer Integration](#imposer-integration)
 - [Exporting Posts, Pages, and Other Resources](#exporting-posts-pages-and-other-resources)
   * [Updating Exported Documents](#updating-exported-documents)
+  * [Updating Exported HTML](#updating-exported-html)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects](#document-objects)
@@ -171,6 +172,10 @@ Post-Meta:  # array of meta keys -> meta values; only the given values are chang
 Set-Options:  # an option path or array of option paths; each will be set to the post's db ID
   - edd_settings/purchase_history_page  # e.g., make this page the "my account" page for both EDD
   - lifterlms_myaccount_page_id         # and LifterLMS.  See "Working With Options" for more info
+
+HTML:  # override markdown conversion for specific fields
+  Excerpt: "<p>This is html</p>"   # a string means, "use this HTML instead of what's in the field"
+  body: true                       # non-false non-string means, "field is HTML, not markdown"
 ```
 
 Please note that Postmark only validates or converts a few of these fields.  Most are simply passed to Wordpress as-is, which may create problems if you use an invalid value.  (For example, if you assign a custom post type that isn't actually installed, or a status that the post type doesn't support.)  In most cases, however, you can fix such problems simply by changing the value to something valid and re-syncing the file.
@@ -402,6 +407,8 @@ Each export file is given a name based on its slug (i.e., its `post_name`), poss
 
 Currently, post content is exported to markdown files *as-is*, without any attempt to translate HTML back to markdown.  In addition, a great many default-valued or empty fields are likely to be included in the YAML front matter.  For this reason, exported posts must be manually edited to resolve these issues.  Alternately, you can use the [export actions and filters](#export-actions-and-filters) to convert or clean up the content during the export process.  (e.g. to remove meta fields that should not be placed under revision control.)
 
+Because the post excerpt and body are stored as HTML in the database, the exported document has the relevant `HTML:` front matter fields set to `true`, so that if the file is imported as-is, the content will not be re-parsed as markdown.  If you do convert the content to markdown, you should remove the relevant entries from the  `HTML:` map, or rename it to `Export-HTML:` if you will be editing the content in WordPress and then saving it with `postmark update`.
+
 Also note: a post's parent, menu order, and MIME type are currently *not* included in its export file, since menu order and MIME type are used only for menu items and attachments, and postmark determines a post's parent (if any) using its directory location.  (The post's `_thumbnail_id` metadata is also excluded, since it references an integer ID that could vary between databases.)
 
 ### Updating Exported Documents
@@ -423,6 +430,9 @@ Export-Meta:
 Post-Meta:
   # Forcibly delete the CSS cache on import, so it won't be stale
   _elementor_css: null
+
+Export-HTML:  # Use HTML from Elementor instead of the markdown body
+  body:
 ```
 
 Note that in order to use this feature safely, you need to have a good understanding of what the various metadata fields supplied by your plugins *do*, so that you don't corrupt data at deployment time.
@@ -437,6 +447,26 @@ Export-Meta:
 ```
 
 For every non-`false` entry in `Export-Meta`, there will be a corresponding entry in the `Post-Meta` of the `.pmx.yml` export file: either the value of that metadata field, or `null` if the post lacks that field.  This means that on import, such missing fields will be explicitly deleted, removing any dangling value in the database.  This is particularly important for use with plugins that decide things based on the presence or absence of a metadata field, not just its content.
+
+### Updating Exported HTML
+
+If you will be editing or generating a post's content or excerpt using the WordPress GUI (e.g. with Gutenberg or a page builder), you should add an `Export-HTML:` field to your document, listing the fields to export, and remove the corresponding fields from the document (and from the `HTML:` field, if it exists).  So, if you want to create a new document whose content you'll be mostly editing via the Gutenberg editor, you might create a new empty document like this:
+
+```markdown
+---
+Title: An Example
+WP-Type: page
+
+Export-HTML:
+  body:
+  Excerpt:
+---
+
+```
+
+After this document is imported to a WordPress page, you can use `postmark update` to export the HTML for the body and excerpt.
+
+(Conversely, if you've already created the document in WordPress, you can use `postmark export` to create the initial markdown file, but you will then need to edit it and rename the `HTML:` field to `Export-HTML:`, remove the body text and `Excerpt:`, and then run `postmark update` on the file to replace the old body and excerpt in the corresponding `.pmx.yml` file.)
 
 ## Actions and Filters
 

@@ -16,6 +16,7 @@ class PostExporter {
 
 		$id = $post->ID;
 		$mdf->body = $post->post_content;
+		$mdf->HTML = array('body'=>true, 'Excerpt'=>true);
 
 		$mdf->ID = $post->guid;
 		$mdf->Title = $post->post_title;
@@ -83,9 +84,12 @@ class PostExporter {
 		if ( $doc ) {
 			$data = array();
 			foreach ( $doc->get('Export-Meta', array()) as $k => $v ) {
-				if ( $v !== false ) $data[$k] = $meta->get($k);
+				if ( $v !== false ) $data['Post-Meta'][$k] = $meta->get($k);
 			}
-			$mdf->exchangeArray( $data ? array('Post-Meta'=>$data) : array() );
+			foreach ( $doc->get('Export-HTML', array()) as $k => $v ) {
+				if ( $v !== false ) $data['HTML'][$k] = $mdf->{$k};
+			}
+			$mdf->exchangeArray( $data );
 		} else {
 			do_action('postmark_export', $mdf, $post);
 			return apply_filters('postmark_export_slug', $mdf->Slug, $mdf, $post, $dir);

@@ -85,7 +85,17 @@ class MarkdownFile extends Bag {
 		if ($key === 'meta') $this->exchangeArray(array()); else unset($this[$key]);
 	}
 
-	function html($propName='body') {
-		return Formatter::format($this, $propName, $this->{$propName});
+	function html($propName='body', $allow_override=true) {
+		$md = $this->{$propName};
+		if ( $allow_override ) {
+			$html = null;
+			$extract = function($v) use ($md, &$html) {
+				if ( is_string($v) ) $html = $v;
+				else if ( $v !== false ) $html = $md;
+			};
+			$this->select( array('HTML' => array($propName => $extract)) );
+			if ( isset($html) ) return $html;
+		}
+		return Formatter::format($this, $propName, $md);
 	}
 }
