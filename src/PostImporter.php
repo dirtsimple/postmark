@@ -119,11 +119,13 @@ class PostImporter {
 				$id = yield $postinfo->ref();
 
 				# Updating a post doesn't update its guid, so we might have to force it
-				if ( get_post_field('guid', $id) !== $doc->ID ) {
-					$post = array('guid'=>$doc->ID, 'post_type'=>get_post_field('post_type', $id));
+				if ( get_post_field('guid', $id, 'raw') !== $doc->ID ) {
+					$post = array('guid'=>$doc->ID);
 					# Fix the GUID in the db and cache
 					$wpdb->update( $wpdb->posts, $post, array('ID'=>$id) );
+					$post['post_type'] = get_post_field('post_type', $id, 'raw');  # needed by on_save_post
 					PostModel::on_save_post($id, (object) $post);
+					clean_post_cache($id);  # make sure WP cache is correct
 				}
 
 				do_action('postmark_after_sync', $doc, get_post($id));
