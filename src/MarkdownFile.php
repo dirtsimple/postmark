@@ -2,7 +2,6 @@
 namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Bag;
-use Symfony\Component\Yaml\Yaml;
 
 class MarkdownFile extends Bag {
 	/* A MarkdownFile is a combination of front matter and body */
@@ -16,13 +15,13 @@ class MarkdownFile extends Bag {
 		return $inst->loadFile($file);
 	}
 
-	function parse($text) {
+	function parse($text, $filename=null) {
 		$meta = '';
 		$body = $text;
 		if ( preg_match("{^(?:---)[\r\n]+(.*?)[\r\n]+(?:---)[\r\n]+(.*)$}s", $text, $m) === 1) {
 			$meta = $m[1]; $body = $m[2];
 		}
-		$this->exchangeArray( ! empty(trim($meta)) ? Yaml::parse(trim($meta)) : array() );
+		$this->exchangeArray( ! empty(trim($meta)) ? Yaml::parse(trim($meta), $filename) : array() );
 		$this->body = $body;
 		return $this;
 	}
@@ -41,7 +40,7 @@ class MarkdownFile extends Bag {
 		) ? $m[3] : $text;
 	}
 
-	function loadFile($file) { return $this->parse(file_get_contents($file)); }
+	function loadFile($file) { return $this->parse(file_get_contents($file), $file); }
 
 	function dump($filename=null) {
 		$data = sprintf("---\n%s---\n%s", $this->dumpMeta(), $this->body);
@@ -49,7 +48,7 @@ class MarkdownFile extends Bag {
 	}
 
 	function dumpMeta($filename=null) {
-		$data = Yaml::dump( $this->items(), 4, 2, Yaml::DUMP_OBJECT_AS_MAP | Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK);
+		$data = Yaml::dump( $this->items() );
 		return isset($filename) ? Project::writeFile($filename, $data) : $data;
 	}
 

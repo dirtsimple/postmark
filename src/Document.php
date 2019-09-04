@@ -1,7 +1,6 @@
 <?php
 namespace dirtsimple\Postmark;
 
-use Symfony\Component\Yaml\Yaml;
 use WP_Error;
 
 class Document extends MarkdownFile {
@@ -32,7 +31,7 @@ class Document extends MarkdownFile {
 
 		# Load export file, if any
 		if ( file_exists( $metafile = $this->metafile() ) ) {
-			$this->inherit( Yaml::parse(file_get_contents($metafile)) );
+			$this->inherit( Yaml::parseFile($metafile) );
 		}
 
 		# Compute slug

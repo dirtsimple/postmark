@@ -1,6 +1,5 @@
 <?php
 namespace dirtsimple\Postmark;
-use Symfony\Component\Yaml\Yaml;
 
 class Prototype {
 
@@ -32,7 +31,7 @@ class Prototype {
 		$this->mdfile = new MarkdownFile();
 
 		if ( isset( $this->files['yml'] ) ) {
-			$this->mdfile->inherit( Yaml::parse( file_get_contents( $this->files['yml'] ) ) );
+			$this->mdfile->inherit( Yaml::parseFile( $this->files['yml'] ) );
 		}
 
 		if ( isset( $this->files['md'] ) ) {
