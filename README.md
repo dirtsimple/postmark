@@ -108,12 +108,12 @@ When syncing any individual `.md` file, Postmark searches upward until a matchin
 
 Postmark input files do not need to be placed under your Wordpress directory or even accessible by your webserver.  For security, they should not be *writable* by your webserver, and do not even need to be *readable* except by the user running `wp postmark` commands.  You also do not have to place all your markdown files in a single tree: the `postmark sync` and `postmark tree` commands accept multiple file and directory names, respectively.
 
-Postmark input files use standard YAML front matter, delineated by `---` before and after, like this:
+Postmark input files use standard YAML (v1.2) front matter, delineated by `---` before and after, like this:
 
 ```markdown
 ---
 ID: urn:uuid:1e30ea5f-17fe-422a-9c24-cb591eb2d72d
-Draft: yes
+Draft: true
 ---
 ## Content Goes Here
 
@@ -296,7 +296,7 @@ Then, in the same directory or a parent, create a `_postmark/` or `.postmark/` d
 
 ```yaml
 WP-Type: post
-Draft: no
+Draft: false
 Category: videos
 Author: me@example.com
 ```
