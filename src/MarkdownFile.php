@@ -2,7 +2,6 @@
 namespace dirtsimple\Postmark;
 
 use dirtsimple\imposer\Bag;
-use Mustangostang\Spyc;
 use Symfony\Component\Yaml\Yaml;
 
 class MarkdownFile extends Bag {
@@ -23,7 +22,7 @@ class MarkdownFile extends Bag {
 		if ( preg_match("{^(?:---)[\r\n]+(.*?)[\r\n]+(?:---)[\r\n]+(.*)$}s", $text, $m) === 1) {
 			$meta = $m[1]; $body = $m[2];
 		}
-		$this->exchangeArray( ! empty(trim($meta)) ? Spyc::YAMLLoadString(trim($meta)) : array() );
+		$this->exchangeArray( ! empty(trim($meta)) ? Yaml::parse(trim($meta)) : array() );
 		$this->body = $body;
 		return $this;
 	}

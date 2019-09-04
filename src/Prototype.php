@@ -1,6 +1,6 @@
 <?php
 namespace dirtsimple\Postmark;
-use Mustangostang\Spyc;
+use Symfony\Component\Yaml\Yaml;
 
 class Prototype {
 
@@ -32,7 +32,7 @@ class Prototype {
 		$this->mdfile = new MarkdownFile();
 
 		if ( isset( $this->files['yml'] ) ) {
-			$this->mdfile->inherit( Spyc::YAMLLoad( $this->files['yml'] ) );
+			$this->mdfile->inherit( Yaml::parse( file_get_contents( $this->files['yml'] ) ) );
 		}
 
 		if ( isset( $this->files['md'] ) ) {
