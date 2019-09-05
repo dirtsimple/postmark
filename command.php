@@ -18,6 +18,10 @@ if ( class_exists( 'WP_CLI' ) ) {
 		});
 		add_filter('imposer_nonguid_post_types', array(Database::class, 'legacy_filter'), 0, 1);
 	});
-	Yaml::DUMP_OBJECT_AS_MAP;  # make sure our 3.2+ Yaml loads before any WP plugins can vendor it :(
+
+	# Make sure our 3.4+ Yaml loads before any WP plugins (e.g. cloudflare) can vendor it :(
+	# We do this by parsing and dumping something that requires escaping, which should
+	# force the parser, dumper, escaper, unescaper, and inline classes to all be loaded.
+	Yaml::parse(Yaml::dump(array('x'=>array('xyz"22'))));
 }
 
