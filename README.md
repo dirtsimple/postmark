@@ -45,6 +45,7 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
 - [Exporting Posts, Pages, and Other Resources](#exporting-posts-pages-and-other-resources)
   * [Updating Exported Documents](#updating-exported-documents)
   * [Updating Exported HTML](#updating-exported-html)
+  * [Updating Other Fields](#updating-other-fields)
 - [Actions and Filters](#actions-and-filters)
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects](#document-objects)
@@ -64,6 +65,7 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
     + [postmark_export_meta_$key](#postmark_export_meta_key)
     + [postmark_export](#postmark_export)
     + [postmark_export_slug](#postmark_export_slug)
+    + [postmark update wp-post](#postmark-update-wp-post)
   * [Other Filters](#other-filters)
     + [postmark_author_email](#postmark_author_email)
     + [postmark_excluded_types](#postmark_excluded_types)
@@ -468,6 +470,20 @@ After this document is imported to a WordPress page, you can use `postmark updat
 
 (Conversely, if you've already created the document in WordPress, you can use `postmark export` to create the initial markdown file, but you will then need to edit it and rename the `HTML:` field to `Export-HTML:`, remove the body text and `Excerpt:`, and then run `postmark update` on the file to replace the old body and excerpt in the corresponding `.pmx.yml` file.)
 
+### Updating Other Fields
+
+In addition to metadata and HTML fields, you can allow other fields to be updated from the WordPress GUI when doing a `postmark update`: just add the fields to `Export-Fields:`.  For example, this front matter will cause the `Updated:` and `Tags:` fields to be exported to the `.pmx.yml` file during update:
+
+```markdown
+---
+Export-Fields:
+  Updated:
+  Tags:
+---
+```
+
+Remember, though: fields exported by `postmark update` are only *defaults*: you must remove the corresponding field from the main `.md` file in order for the exported data to be imported.
+
 ## Actions and Filters
 
 All of Postmark's actions and filters can be registered from a plugin, theme, wp-cli package, or imposer state module.  Because Postmark is built on [imposer](https://github.com/dirtsimple/imposer), you can hook the `imposer_tasks` action to register other actions and filters -- meaning you can put your imposer or postmark-specific hooks in a separate PHP file and then `require_once` that file, e.g.:
@@ -679,6 +695,12 @@ If any hooks are registered for this action, the corresponding `$key` will be re
 #### postmark_export_slug
 
 `apply_filters('postmark_export_slug', string $slug, MarkdownFile $md, WP_Post $post, $dir)` filters the slug that will be used to generate the export filename.  `$dir` is the output directory, and is either an empty string (for the current directory) or a directory name with a trailing `/`.  The initial value of `$slug` comes from `$md->Slug`, after the `postmark_export` hook has had the oppoturnity to change it.
+
+#### postmark update wp-post
+
+`do_action('postmark export wp-post', Bag $export, MarkdownFile $md, WP_Post $post, Document $doc)` is run by the `postmark update` command when updating an existing document (`$doc`) from its corresponding `$post`.  The `$md` variable contains the MarkdownFile object that would hav been written if a normal export were being performed, and `$export` is the ArrayObject whose contents will be written to the `.pmx.yml` file.  Callbacks registered for this action can modify `$export` to change what data will be written.
+
+While most callbacks for this action will only need the first two arguments, the `$doc` argument can be used to look for flags to decide how to do the export.  For example, you could check `$doc->has('Export-Foo')` to decide whether to export certain data, similar to the built-in `Export-HTML` and `Export-Meta` fields.  Upon finding the flag in `$doc`, you would then copy the relevant data from `$md` (or `$post`) to a field on `$export`.
 
 ### Other Filters
 

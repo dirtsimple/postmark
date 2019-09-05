@@ -89,7 +89,11 @@ class PostExporter {
 			foreach ( $doc->get('Export-HTML', array()) as $k => $v ) {
 				if ( $v !== false ) $data['HTML'][$k] = $mdf->{$k};
 			}
-			$mdf->exchangeArray( $data );
+			foreach ( $doc->get('Export-Fields', array()) as $k => $v ) {
+				if ( $v !== false ) $data[$k] = $mdf->{$k};
+			}
+			do_action('postmark update wp-post', $data = new Bag($data), $mdf, $post, $doc);
+			$mdf->exchangeArray( $data->items() );
 		} else {
 			do_action('postmark_export', $mdf, $post);
 			return apply_filters('postmark_export_slug', $mdf->Slug, $mdf, $post, $dir);
