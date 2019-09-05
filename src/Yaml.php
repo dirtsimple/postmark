@@ -30,18 +30,39 @@ class Yaml {
 	# and nested data structures are only inlined if they can fit on the current
 	# line without wrapping, and have no non-empty containers as children
 	#
-	protected static function _dump($data, $flags, $tabsize=2, $width=120, $indent=0) {
+	protected static function _dump($data, $flags, $tabsize=2, $width=120, $indent=0, $keylen=0) {
 		$prefix = str_repeat(' ', $indent);
-		if ( ! is_null($out = static::_inline($data, $flags, $width)) ) {
-			return "$prefix$out\n";
+
+		if ( static::_is_leaf($data) ) {
+			if ($keylen) {
+				# Recursive call: return everything on one line
+				return Inline::dump($data, $flags);
+			} else {
+				# Root call: include prefix and trailing LF
+				return $prefix . Inline::dump($data, $flags & ~Yaml12::DUMP_EMPTY_ARRAY_AS_SEQUENCE) . "\n";
+			}
 		}
 
 		$out = array('');
 		$isMap = Inline::isHash($data);
+		$can_inline = true;
+		$inline_room = $width - $keylen - 4;  # allow for [ ] / { }
+		$memo = array();
 
 		foreach ($data as $k => $v) {
-			$k = $isMap ? Inline::dump($k, $flags).':' : '-';
-			if ( is_string($v) ) {
+			$can_inline = ( $inline_room > 0 ) && static::_is_leaf($v);
+			if ( ! $can_inline ) break;
+			$val = Inline::dump($v, $flags);
+			$val = $memo[$k] = $isMap ? Inline::dump($k) . ": $val" : $val;
+			$inline_room -= strlen($val) + 2;
+		}
+
+		if ( $can_inline ) {
+			return sprintf( $isMap ? "{ %s }" : "[ %s ]", implode(', ', $memo) );
+		}
+
+		foreach ($data as $k => $v) {
+			if ( is_string($v) && strpos($v, "\n") !== false ) {
 				# Could this key's value be rendered as a multi-line literal?
 				$n = count( $lines = explode("\n", $v) );
 				if ( $n > 1 && false === strpos($v, "\r\n") ) {
@@ -51,45 +72,30 @@ class Yaml {
 					} else if ( $lines[$n-2] === '' ) {
 						$indicator .= '+';  # keep trailing blank lines
 					} else array_pop($lines); # drop unneeded blank line
+					$k = $isMap ? Inline::dump($k, $flags).':' : '-';
 					$out[] = "$k |$indicator\n";
 					$pre = str_repeat(' ', $tabsize);
 					foreach ( $lines as $line ) $out[] = "$pre$line\n";
 					continue;
 				}
 			}
-			if ( ! is_null($t = static::_inline($v, $flags, $width-strlen($k)-1)) ) {
-				$out[] = "$k $t\n";
+
+			# Not a multi-line literal; can we re-use an existing entry?
+			if ( array_key_exists($k, $memo) ) {
+				$out[] = ( $isMap ? "": "- " ) . $memo[$k] . "\n";
+				continue;
+			}
+
+			# Not memoized or a multi-line literal; recurse:
+			$k = $isMap ? Inline::dump($k, $flags).':' : '-';
+			$v = static::_dump($v, $flags, $tabsize, $width, $indent+$tabsize, strlen($k)+1);
+			if ( substr($v, -1) !== "\n" ) {
+				$out[] = "$k $v\n";
 			} else {
-				$v = static::_dump($v, $flags, $tabsize, $width-$tabsize, $indent+$tabsize);
 				$out[] = "$k\n$v";
 			}
 		}
 		return implode($prefix, $out);
-	}
-
-	protected static function _inline($data, $flags, $width) {
-		if ( static::_is_leaf($data) ) return Inline::dump($data, $flags);
-
-		$width -= 4;  # allow for [ ] / { }
-		$estimate = 0;
-
-		# Abort if any non-leaf children or definitely oversized,
-		# without actually dumping them (to avoid duplicate work in _dump)
-		foreach ($data as $k => $v) {
-			if ( ! static::_is_leaf($v) ) return;
-			$estimate += strlen($k) + 2 + ( is_scalar($v) ? strlen($v) : 2 );
-			if ( $estimate > $width ) return;
-		}
-
-		$isMap = Inline::isHash($data);
-		$out = '';
-		foreach ($data as $k => $v) {
-			if ( $out !== '' ) $out .= ', ';
-			if ( $isMap ) $out .= Inline::dump($k, $flags) . ": ";
-			$out .= Inline::dump($v, $flags);
-			if ( strlen($out) > $width ) return;
-		}
-		return $isMap ? "{ $out }" : "[ $out ]";
 	}
 
 	protected static function _is_leaf($data) {
