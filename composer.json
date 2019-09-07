@@ -32,6 +32,7 @@
         }
     },
     "require": {
+        "dirtsimple/clean-yaml": "^0.1",
         "dirtsimple/imposer": "dev-master",
         "dirtsimple/fun-factory": "^0.2.0",
         "wp-cli/wp-cli": "^2",
