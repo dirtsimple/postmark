@@ -51,7 +51,8 @@ class Option {
 	}
 
 	static function pluck(array $keypath) {
-		$optval = get_option( array_shift($keypath) );
+		$option = array_shift($keypath);
+		$optval = static::sanitize_option( $option, get_option($option) );
 		if ( false === $optval ) return false;
 		$traverser = new RecursiveDataStructureTraverser($optval);
 		try {
