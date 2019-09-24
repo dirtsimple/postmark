@@ -118,7 +118,6 @@ class PostmarkCommand {
 	 */
 	function sync( $args, $flags ) {
 		Imposer::task( $this->taskName("wp postmark sync", $args, $flags) )
-			->produces('@wp-posts')
 			->steps( function() use ($args, $flags) {
 				try {
 					yield $this->sync_docs( $args, $flags );
@@ -148,7 +147,6 @@ class PostmarkCommand {
 	 */
 	function tree( $args, $flags ) {
 		Imposer::task( $this->taskName("wp postmark tree", $args, $flags) )
-			->produces('@wp-posts')
 			->steps( function() use ($args, $flags) {
 				try {
 					$all = array();

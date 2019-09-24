@@ -18,7 +18,7 @@ exclude-options postmark_option_cache
 The implementation just runs the trees with the specified options: first the modules, then the content.
 
 ```php
-Imposer::task('Postmark Tree') -> produces('@wp-posts')
+Imposer::task('Postmark Tree')
 	-> reads( ['postmark', 'modules'], ['postmark', 'content'] )
 	-> steps( function ($modules, $content) {
 		if ( ! ($modules || $content) ) return;
