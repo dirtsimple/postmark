@@ -1,7 +1,6 @@
 <?php
 namespace dirtsimple\Postmark;
 
-use dirtsimple\fn;
 use dirtsimple\imposer\Bag;
 use dirtsimple\imposer\Imposer;
 use dirtsimple\imposer\PostModel;
