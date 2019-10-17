@@ -50,7 +50,6 @@ Postmark is similar in philosophy to [imposer](https://github.com/dirtsimple/imp
   * [Markdown Formatting](#markdown-formatting)
   * [Document Objects](#document-objects)
     + [postmark load *resource-kind*](#postmark-load-resource-kind)
-    + [postmark_load](#postmark_load)
     + [postmark_resource_kinds](#postmark_resource_kinds)
   * [Sync Actions for Posts](#sync-actions-for-posts)
     + [postmark_before_sync](#postmark_before_sync)
@@ -360,10 +359,10 @@ For example, you could add a `Prototype-Version` field to your prototypes, and t
 
 Of course, that doesn't help you if you're creating a Postmark extension (e.g. in a  wp-cli package, plugin, theme, or Imposer state module).  You can't edit your users' prototype files, assuming you even knew what to edit.
 
-But you *can* "edit" your users' *front-matter* at import time, using the [`postmark_load` action](#postmark_load).  For example:
+But you *can* "edit" your users' *front-matter* at import time, using the [`postmark load wp-post` action](#postmark-load-resource-kind).  For example:
 
 ```php
-add_action('postmark_load', function($doc) {
+add_action('postmark load wp-post', function($doc) {
     if ( $doc->has('EDD') ) $doc['EDD-Importer-Version'] = '4.1';
 }, 10, 1);
 
@@ -373,9 +372,9 @@ add_action('postmark_metadata', function($postinfo, $doc) {
 }, 10, 2);
 ```
 
-In this example, the `postmark_load` handler adds an extra `EDD-Importer-Version` field when a document is loaded that contains an `EDD` field.  This means that if the import semantics for the `EDD` field change, the version can be changed, and then any documents with an `EDD` field will be considered "changed" since their last sync.  In this way, merely upgrading the plugin (or package, state module, theme, etc.) will automatically invalidate caching for the affected documents.
+In this example, the `postmark load wp-post` handler adds an extra `EDD-Importer-Version` field when a document is loaded that contains an `EDD` field.  This means that if the import semantics for the `EDD` field change, the version can be changed, and then any documents with an `EDD` field will be considered "changed" since their last sync.  In this way, merely upgrading the plugin (or package, state module, theme, etc.) will automatically invalidate caching for the affected documents.
 
-(Note, by the way, that this type of versioning is *only* required for extensions that are altering the HTML formatting or need access to the postinfo object.  If an extension is just providing syntax sugar or remapping fields, and can do everything it needs from the `postmark_load` action, then the remapped fields would already be part of the document hash, and so any change in the remapping process would automatically change the hash of any documents affected by the change.)
+(Note, by the way, that this type of versioning is *only* required for extensions that are altering the HTML formatting or need access to the postinfo object.  If an extension is just providing syntax sugar or remapping fields, and can do everything it needs from the `postmark load wp-post` action, then the remapped fields would already be part of the document hash, and so any change in the remapping process would automatically change the hash of any documents affected by the change.)
 
 ## Imposer Integration
 
@@ -500,14 +499,14 @@ Then, you can put any code to register postmark actions or filters in `includes/
 
 Markdown formatting is controlled by the following filters:
 
-* `apply_filters('postmark_formatter_config', array $cfg, Environment $env)` -- this filter is invoked once per command, to initialize the League/Commonmark [Environment](https://commonmark.thephpleague.com/customization/environment/) and [configuration](https://commonmark.thephpleague.com/configuration/).  Filters can add markdown extensions, parsers, or formatters to the `Environment` object, or return an altered `$cfg` array.  In addition to the standard configuration elements, `$cfg` contains an `extensions` array mapping extension class names to argument arrays (or null).  These extension classes are instantiated using the given argument arrays, and added to `$env`.  An extension can be disabled by setting its value in the `extensions` array to `false`.
+* `apply_filters('postmark_formatter_config', array $cfg, Environment $env)` -- this filter is invoked once per command, to initialize the League/Commonmark [Environment](https://commonmark.thephpleague.com/customization/environment/) and [configuration](https://commonmark.thephpleague.com/configuration/).  Filters can add markdown extensions, parsers, processors, or renderers to the `Environment` object, or return an altered `$cfg` array.  In addition to the standard configuration elements, `$cfg` contains an `extensions` array mapping extension or parser class names to argument arrays (or null).  These extension classes are instantiated using the given argument arrays, and added to `$env`.  An extension can be disabled by setting its value in the `extensions` array to `false`.
 
   The current default extensions are:
 
-  * [`Webuni\CommonMark\TableExtension\TableExtension`](https://github.com/webuni/commonmark-table-extension#syntax), which implements Markdown tables,
+  * [`League\CommonMark\Ext\Table\TableExtension`](https://github.com/thephpleague/commonmark-ext-table#syntax), which implements Markdown tables,
   * [`Webuni\CommonMark\AttributesExtension\AttributesExtension`](https://github.com/webuni/commonmark-attributes-extension#syntax), which allows adding Kramdown-style HTML attributes to blocks and spans, and
-  * [`OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension`](https://github.com/omt/commonmark-strikethrough-extension/), which turns `~~`-wrapped text into `<del>` elements for strikethrough, and
-  * [`League\CommonMark\Extras\SmartPunct\SmartPunctExtension`](https://github.com/thephpleague/commonmark-extras), which translates dots and hyphens to ellipses and em/en dashes, and converts plain single and double quotes to their left/right versions.
+  * [`League\CommonMark\Ext\Strikethrough\StrikethroughExtension`](https://github.com/thephpleague/commonmark-ext-strikethrough/#readme), which turns `~~`-wrapped text into `<del>` elements for strikethrough, and
+  * [`League\CommonMark\Ext\SmartPunct\SmartPunctExtension`](https://github.com/thephpleague/commonmark-ext-smartpunct#readme), which translates dots and hyphens to ellipses and em/en dashes, and converts plain single and double quotes to their left/right versions.
   * `dirtsimple\Postmark\ShortcodeParser`, which detects lines that consist solely of shortcode opening or closing tags, and passes them through without markdown interpretation.  (This allows you to enclose markdown blocks within a shortcode, instead of having the shortcode become part of the block itself, which can be problematic when using e.g. conditional tags.)
 
 * `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)
@@ -516,7 +515,7 @@ Markdown formatting is controlled by the following filters:
 
 Note that `postmark_markdown` and `postmark_html` may be invoked several times or not at all, as they are run whenever `$doc->html(...)` is called.  If a sync filter or action set `$postinfo['post_content']` or `$postinfo['post_excerpt']` before Postmark has a chance to, these filters won't be invoked unless the filter or action uses `$doc->html(...)` to do the conversion.
 
-Also note that if you are adding hooks to *any* of these filters, you should also add versioning info to documents during the `postmark_load` filter, so that when your extension is added, removed, or updated, affected documents will be considered "changed" and get re-synced.
+Also note that if you are adding hooks to *any* of these filters, you should also add formatter versioning info to documents during relevant `postmark load` filters, so that when your extension is added, removed, or updated, any affected documents will be considered "changed" and get re-synced.
 
 ### Document Objects
 
@@ -536,10 +535,6 @@ Whenever a document is loaded from disk, `do_action("postmark load $kind", Docum
 If you're writing an extension that needs to do complex calculations or access the database, however, you should probably use a different hook, and add a versioning field (e.g. `MyPlugin-Version-Info`) during this action in order to ensure that documents get re-synced when your algorithms change.  Likewise, if your extension is altering how markdown formatting is done, you should add a versioning field to ensure that adding, removing, or updating your extension will force affected documents to re-sync.
 
 The default *resource-kind* is `wp-post`, meaning the document is going to be mapped to a Wordpress post, or, if the document has an `x-option-value` URL, the default resource kind is `wp-option-html`.  Other resource kinds can be registered using the [`postmark_resource_kinds` action](#postmark_resource_kinds), and assigned to documents via the `Resource-Kind:` front-matter field (either directly in the document, or via a prototype).
-
-#### postmark_load
-
-This hook is deprecated; please use `"postmark load wp-post"` or `"postmark load wp-option-html"` instead.
 
 #### postmark_resource_kinds
 

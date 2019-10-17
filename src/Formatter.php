@@ -27,10 +27,10 @@ class Formatter {
 				'line_break' => "",
 			),
 			'extensions' => array(
-				'Webuni\CommonMark\TableExtension\TableExtension' => null,
+				'League\CommonMark\Ext\Table\TableExtension' => null,
 				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
-				'OneMoreThing\CommonMark\Strikethrough\StrikethroughExtension' => null,
-				'League\CommonMark\Extras\SmartPunct\SmartPunctExtension' => null,
+				'League\CommonMark\Ext\Strikethrough\StrikethroughExtension' => null,
+				'League\CommonMark\Ext\SmartPunct\SmartPunctExtension' => null,
 				'dirtsimple\Postmark\ShortcodeParser' => null,
 			),
 		);
@@ -54,9 +54,7 @@ class Formatter {
 		switch (true) {
 		case $ext instanceof Extension\ExtensionInterface                 : $env->addExtension($ext);         break;
 		case $ext instanceof Block\Parser\BlockParserInterface            : $env->addBlockParser($ext);       break;
-		case $ext instanceof League\CommonMark\DocumentProcessorInterface : $env->addDocumentProcessor($ext); break;
 		case $ext instanceof Inline\Parser\InlineParserInterface          : $env->addInlineParser($ext);      break;
-		case $ext instanceof Inline\Processor\InlineProcessorInterface    : $env->addInlineProcessor($ext);   break;
 		default: throw new Error(__('Unrecognized extension type: %s', 'postmark'), $name);
 		}
 	}
