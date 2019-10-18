@@ -76,8 +76,9 @@ class PostImporter {
 
 	protected function _parseDate($gmtField, $date) {
 		$date = new WpDateTime($date, WpDateTimeZone::getWpTimezone());
+		$plain = $date->format('Y-m-d H:i:s');
 		$this->syncField( $gmtField, $date->setTimezone(new WpDateTimeZone('UTC'))->format('Y-m-d H:i:s') );
-		return $date->format('Y-m-d H:i:s');	// localtime version
+		return $plain;	// localtime version
 	}
 
 	function syncField($field, $value, $is_callback=null) {
