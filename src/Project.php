@@ -114,7 +114,9 @@ class Project {
 			$dir = dirname($filename);
 			if ( static::basename($filename) == 'index.md' ) {
 				if ( static::is_project($dir) ) return null;
-				$dir = dirname($dir);
+				$newdir = dirname($dir);
+				if ( $newdir === $dir ) return null;
+				$dir = $newdir;
 			}
 			$filename = $dir == '.' ? 'index.md' : "$dir/index.md";
 		} while ( ! file_exists($filename) || ! filesize($filename) );
