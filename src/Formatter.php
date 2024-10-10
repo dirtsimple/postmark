@@ -28,9 +28,9 @@ class Formatter {
 			),
 			'extensions' => array(
 				'League\CommonMark\Ext\Table\TableExtension' => null,
-				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
-				'League\CommonMark\Ext\Strikethrough\StrikethroughExtension' => null,
-				'League\CommonMark\Ext\SmartPunct\SmartPunctExtension' => null,
+				#'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
+				#'League\CommonMark\Ext\Strikethrough\StrikethroughExtension' => null,
+				#'League\CommonMark\Ext\SmartPunct\SmartPunctExtension' => null,
 				'dirtsimple\Postmark\ShortcodeParser' => null,
 			),
 		);
