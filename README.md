@@ -503,10 +503,12 @@ Markdown formatting is controlled by the following filters:
 
   The current default extensions are:
 
-  * [`League\CommonMark\Ext\Table\TableExtension`](https://github.com/thephpleague/commonmark-ext-table#syntax), which implements Markdown tables,
-  * [`Webuni\CommonMark\AttributesExtension\AttributesExtension`](https://github.com/webuni/commonmark-attributes-extension#syntax), which allows adding Kramdown-style HTML attributes to blocks and spans, and
-  * [`League\CommonMark\Ext\Strikethrough\StrikethroughExtension`](https://github.com/thephpleague/commonmark-ext-strikethrough/#readme), which turns `~~`-wrapped text into `<del>` elements for strikethrough, and
-  * [`League\CommonMark\Ext\SmartPunct\SmartPunctExtension`](https://github.com/thephpleague/commonmark-ext-smartpunct#readme), which translates dots and hyphens to ellipses and em/en dashes, and converts plain single and double quotes to their left/right versions.
+  * [`League\CommonMark\Extension\Table\TableExtension`](https://commonmark.thephpleague.com/1.6/extensions/tables/#syntax), which implements Markdown tables,
+  * [`League\CommonMark\Extension\Attributes\AttributesExtension`](https://commonmark.thephpleague.com/1.6/extensions/attributes/#attribute-syntax), which allows adding Kramdown-style HTML attributes to blocks and spans,
+  * [`League\CommonMark\Extension\Strikethrough\StrikethroughExtension`](https://commonmark.thephpleague.com/1.6/extensions/strikethrough/), which turns `~~`-wrapped text into `<del>` elements for strikethrough,
+  * [`League\CommonMark\Extension\SmartPunct\SmartPunctExtension`](https://commonmark.thephpleague.com/1.6/extensions/smart-punctuation/), which translates dots and hyphens to ellipses and em/en dashes, and converts plain single and double quotes to their left/right versions,
+  * [`League\CommonMark\Extension\Autolink\AutolinkExtension`](https://commonmark.thephpleague.com/1.6/extensions/autolinks/), which supports [Github-style autolinking](https://github.github.com/gfm/#autolinks-extension-) of bare URLs and web hostnames,
+  * [`League\CommonMark\Extension\TaskList\TaskListExtension`](https://commonmark.thephpleague.com/1.6/extensions/task-lists/), which adds support for [Github-style task lists](https://github.github.com/gfm/#task-list-items-extension-),
   * `dirtsimple\Postmark\ShortcodeParser`, which detects lines that consist solely of shortcode opening or closing tags, and passes them through without markdown interpretation.  (This allows you to enclose markdown blocks within a shortcode, instead of having the shortcode become part of the block itself, which can be problematic when using e.g. conditional tags.)
 
 * `apply_filters('postmark_markdown', string $markdown, Document $doc, $fieldName)` -- this filter can alter the markdown content of a document (or any of its front-matter fields) before it's converted into HTML.  `$fieldName` is `"body"` if `$markdown` came from `$doc->body`; otherwise it is the name of the front matter field being converted.  (Such as `"Excerpt"`, or any custom fields added by plugins.)

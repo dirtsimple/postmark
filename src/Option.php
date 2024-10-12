@@ -1,8 +1,8 @@
 <?php
 namespace dirtsimple\Postmark;
 
-use WP_CLI\Entity\RecursiveDataStructureTraverser;
-use WP_CLI\Entity\NonExistentKeyException;
+use WP_CLI\Traverser\RecursiveDataStructureTraverser;
+use WP_CLI\Exception\NonExistentKeyException;
 use WP_CLI;
 
 class Option {

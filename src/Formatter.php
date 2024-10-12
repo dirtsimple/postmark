@@ -27,10 +27,12 @@ class Formatter {
 				'line_break' => "",
 			),
 			'extensions' => array(
-				'League\CommonMark\Ext\Table\TableExtension' => null,
-				'Webuni\CommonMark\AttributesExtension\AttributesExtension' => null,
-				'League\CommonMark\Ext\Strikethrough\StrikethroughExtension' => null,
-				'League\CommonMark\Ext\SmartPunct\SmartPunctExtension' => null,
+                'League\CommonMark\Extension\Autolink\AutolinkExtension' => null,
+                'League\CommonMark\Extension\Table\TableExtension' => null,
+                'League\CommonMark\Extension\TaskList\TaskListExtension' => null,
+				'League\CommonMark\Extension\Attributes\AttributesExtension' => null,
+                'League\CommonMark\Extension\Strikethrough\StrikethroughExtension' => null,
+				'League\CommonMark\Extension\SmartPunct\SmartPunctExtension' => null,
 				'dirtsimple\Postmark\ShortcodeParser' => null,
 			),
 		);
